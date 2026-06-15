@@ -1,4 +1,5 @@
 package com.example.demo;
+//Tests for member authentication ,store access and payment security rules
 
 import com.example.demo.dto.request.AssignRoleRequest;
 import com.example.demo.dto.request.BuyStoreItemRequest;

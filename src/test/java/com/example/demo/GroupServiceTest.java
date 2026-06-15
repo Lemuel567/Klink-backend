@@ -1,5 +1,5 @@
 package com.example.demo;
-
+//Tests for sel- contained mini church groups = roles , membership,posts, appointment and sues
 import com.example.demo.dto.request.AddGroupMemberRequest;
 import com.example.demo.dto.request.CreateGroupRequest;
 import com.example.demo.dto.request.PostGroupMessageRequest;

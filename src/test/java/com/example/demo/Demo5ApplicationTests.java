@@ -1,4 +1,5 @@
 package com.example.demo;
+//Integration test -verifies spring context loads correctly  with live PostgreSQL
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
