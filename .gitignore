@@ -15,7 +15,16 @@ firebase-service-account.json
 *.class
 *.jar
 *.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
 *.log
+*.ctxt
+.mtj.tmp/
+hs_err_pid*
+replay_pid*
 
 ### STS ###
 .apt_generated
