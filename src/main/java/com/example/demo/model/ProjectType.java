@@ -1,0 +1,5 @@
+package com.example.demo.model;
+
+public enum ProjectType {
+    CONSTRUCTION, RENOVATION, PURCHASE, COMMUNITY_OUTREACH, EDUCATION, HEALTH, TECHNOLOGY, OTHER
+}
