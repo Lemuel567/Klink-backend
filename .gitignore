@@ -4,6 +4,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Claude Code project data ###
+.claude/
+.mcp.json
+
 ### Secrets — never commit ###
 .env
 firebase-service-account.json
