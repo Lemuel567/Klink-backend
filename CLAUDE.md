@@ -672,7 +672,41 @@ All use `@Scheduled`. `@EnableScheduling` is on `Demo5Application`.
 
 ---
 
-## SECTION 12 — Important Notes for Claude Code
+## SECTION 12 — Defensive Patterns (Added 2026-06-28)
+
+### GlobalExceptionHandler Coverage
+`GlobalExceptionHandler.java` handles (in order):
+- `ResponseStatusException` → preserves status + reason
+- `MethodArgumentNotValidException` → 400; field messages joined (no field names exposed)
+- `ConstraintViolationException` → 400; Jakarta path-level violations
+- `DataIntegrityViolationException` → 409; SQL details stripped, only "conflict occurred" shown
+- `AccessDeniedException` → 403; generic permission message
+- `AuthenticationException` → 401; generic auth message
+- `HttpMediaTypeNotSupportedException` → 415
+- `HttpMessageNotReadableException` → 400; Java class names stripped from cause message
+- `MultipartException` → 400; no internal details
+- `MaxUploadSizeExceededException` → 413
+- `MissingServletRequestParameterException` → 400
+- `MethodArgumentTypeMismatchException` → 400; parameter name only, no value details
+- `HttpRequestMethodNotSupportedException` → 405
+- `Exception` (catch-all) → 500; full stack trace logged, only "unexpected error" shown to client
+
+Response shape: `{ error: string, timestamp: ISO-8601, path: "/api/v1/..." }`.
+No stack traces, no class names, no SQL ever reach the client.
+
+### Connection Pool
+HikariCP: `maximum-pool-size=10`, `minimum-idle=2`, `connection-timeout=30000ms`.
+Allows up to 10 concurrent DB connections; keeps minimum 2 warm.
+
+### Request Timeout
+`spring.mvc.async.request-timeout=30000` — 30 second server-side request timeout.
+
+### File Upload Limits
+`max-file-size=30MB`, `max-request-size=32MB`. `MaxUploadSizeExceededException` returns 413.
+
+---
+
+## SECTION 13 — Important Notes for Claude Code (moved from 12)
 
 - This repo is **backend only**. Never generate UI, screens, or frontend code. Only build the REST API.
 - No Flyway. Schema is managed by Hibernate `ddl-auto: update`. Define schema via JPA entity annotations and `@Table(indexes={...})`.

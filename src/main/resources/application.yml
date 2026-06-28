@@ -9,7 +9,9 @@ spring:
     password: ${DB_PASSWORD}
     hikari:
       connection-test-query: SELECT 1
-      maximum-pool-size: 5
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
       keepalive-time: 60000
       max-lifetime: 600000
       idle-timeout: 300000
@@ -24,7 +26,10 @@ spring:
   servlet:
     multipart:
       max-file-size: 30MB
-      max-request-size: 30MB
+      max-request-size: 32MB
+  mvc:
+    async:
+      request-timeout: 30000
   mail:
     host: smtp.gmail.com
     port: 587
