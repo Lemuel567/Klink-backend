@@ -1,10 +1,13 @@
 package com.example.demo.dto.response;
 
 import com.example.demo.model.Announcement;
+import com.example.demo.model.AnnouncementTargetType;
+import com.example.demo.model.Role;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -18,14 +21,28 @@ public class AnnouncementResponse {
     private UUID postedBy;
     private LocalDateTime createdAt;
 
-    public static AnnouncementResponse from(Announcement announcement) {
+    // Targeting
+    private AnnouncementTargetType targetType;
+    private List<Role> targetRoles;
+    private List<UUID> targetGroupIds;
+    private List<UUID> targetMemberIds;
+    private Boolean isTargeted;
+    private int recipientCount;
+
+    public static AnnouncementResponse from(Announcement a) {
         return AnnouncementResponse.builder()
-                .id(announcement.getId())
-                .title(announcement.getTitle())
-                .body(announcement.getBody())
-                .flyerUrl(announcement.getFlyerUrl())
-                .postedBy(announcement.getPostedBy())
-                .createdAt(announcement.getCreatedAt())
+                .id(a.getId())
+                .title(a.getTitle())
+                .body(a.getBody())
+                .flyerUrl(a.getFlyerUrl())
+                .postedBy(a.getPostedBy())
+                .createdAt(a.getCreatedAt())
+                .targetType(a.getTargetType() != null ? a.getTargetType() : AnnouncementTargetType.ALL)
+                .targetRoles(a.getTargetRoles())
+                .targetGroupIds(a.getTargetGroupIds())
+                .targetMemberIds(a.getTargetMemberIds())
+                .isTargeted(Boolean.TRUE.equals(a.getIsTargeted()))
+                .recipientCount(a.getRecipientCount() != null ? a.getRecipientCount() : 0)
                 .build();
     }
 }

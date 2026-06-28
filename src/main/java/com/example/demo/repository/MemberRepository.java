@@ -157,6 +157,10 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
     @Query("SELECT m FROM Member m JOIN FETCH m.church WHERE m.id = :id")
     Optional<Member> findByIdWithChurch(@Param("id") UUID id);
 
+    List<Member> findByChurchIdAndRoleIn(UUID churchId, List<Role> roles);
+
+    List<Member> findByChurchIdAndIdIn(UUID churchId, List<UUID> ids);
+
     @Modifying
     @Query("DELETE FROM Member m WHERE m.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);

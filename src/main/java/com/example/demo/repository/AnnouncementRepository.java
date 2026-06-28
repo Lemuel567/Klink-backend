@@ -21,6 +21,8 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, UUID
 
     Page<Announcement> findByChurchIdOrderByCreatedAtDesc(UUID churchId, Pageable pageable);
 
+    List<Announcement> findTop200ByChurchIdOrderByCreatedAtDesc(UUID churchId);
+
     @Modifying
     @Query("DELETE FROM Announcement a WHERE a.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);
