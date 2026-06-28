@@ -11,6 +11,7 @@ import com.example.demo.dto.request.UpdateMemberRequest;
 import com.example.demo.dto.response.MemberResponse;
 import com.example.demo.model.*;
 import com.example.demo.repository.MemberRepository;
+import com.example.demo.repository.RefreshTokenRepository;
 import com.example.demo.security.MemberPrincipal;
 import com.example.demo.security.RateLimiterService;
 import com.example.demo.security.RoleChecker;
@@ -38,6 +39,7 @@ public class MemberService {
     private static final int MAX_ELDERS = 25;
 
     private final MemberRepository memberRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final SupabaseStorageService storageService;
     private final RateLimiterService rateLimiterService;
     private final ApplicationEventPublisher eventPublisher;
@@ -109,6 +111,8 @@ public class MemberService {
             member.setEmail(request.getEmail());
             member.setEmailVerified(false);
             member.setTokenVersion(member.getTokenVersion() + 1);
+            // Revoke all refresh tokens so a stolen token cannot survive the email change
+            refreshTokenRepository.revokeAllForMember(memberId);
         }
         if (request.getDateOfBirth() != null) member.setDateOfBirth(request.getDateOfBirth());
         if (request.getCategory() != null) member.setCategory(request.getCategory());

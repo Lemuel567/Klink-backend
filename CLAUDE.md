@@ -393,8 +393,9 @@ POST   /api/v1/auth/verify-email             Public — verifies 6-digit email c
 POST   /api/v1/auth/resend-verification      Public — resend email verification code; rate-limited
 POST   /api/v1/auth/verify-phone             Protected (all) — verifies 6-digit SMS code; max 5 attempts
 POST   /api/v1/auth/resend-phone-verification  Protected (all) — resend SMS verification code
-PUT    /api/v1/auth/phone                    Protected (all) — update phone number; triggers re-verification
-POST   /api/v1/auth/fcm-token               Protected (all) — register Firebase push token
+PATCH  /api/v1/members/me/phone              Protected (all) — update phone number; triggers re-verification
+PUT    /api/v1/members/me/fcm-token         Protected (all) — register Firebase push token
+DELETE /api/v1/members/me/fcm-token         Protected (all) — remove Firebase push token
 ```
 
 ### Members
