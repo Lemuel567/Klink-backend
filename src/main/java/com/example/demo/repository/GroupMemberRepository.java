@@ -44,6 +44,28 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
             @Param("paymentMonth") String paymentMonth
     );
 
+    // Distinct member IDs that belong to any of the given groups in the church
+    @Query("""
+        SELECT DISTINCT gm.member FROM GroupMember gm
+        WHERE gm.church.id = :churchId
+          AND gm.group.id IN :groupIds
+        """)
+    List<Member> findMembersByGroupIdsInChurch(
+            @Param("churchId") UUID churchId,
+            @Param("groupIds") List<UUID> groupIds
+    );
+
+    // Group IDs that a specific member belongs to
+    @Query("SELECT gm.group.id FROM GroupMember gm WHERE gm.church.id = :churchId AND gm.member.id = :memberId")
+    List<UUID> findGroupIdsByChurchIdAndMemberId(
+            @Param("churchId") UUID churchId,
+            @Param("memberId") UUID memberId
+    );
+
+    // Group member count per group — used for GroupSummaryResponse
+    @Query("SELECT gm.group.id, COUNT(gm) FROM GroupMember gm WHERE gm.group.id IN :groupIds GROUP BY gm.group.id")
+    List<Object[]> countMembersByGroupIds(@Param("groupIds") List<UUID> groupIds);
+
     @Modifying
     @Query("DELETE FROM GroupMember gm WHERE gm.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);
