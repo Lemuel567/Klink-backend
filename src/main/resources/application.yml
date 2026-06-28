@@ -8,13 +8,15 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
+      pool-name: KlinkHikariPool
+      auto-commit: true
       connection-test-query: SELECT 1
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 30000
       keepalive-time: 60000
-      max-lifetime: 600000
-      idle-timeout: 300000
+      max-lifetime: 1800000
+      idle-timeout: 600000
   jpa:
     open-in-view: false
     hibernate:
