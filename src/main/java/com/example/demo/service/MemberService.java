@@ -67,10 +67,18 @@ public class MemberService {
 
     @Transactional(readOnly = true)
     public Page<MemberResponse> getAllMembers(MemberPrincipal principal, Pageable pageable) {
-        RoleChecker.requirePastorElderOrManager(principal);
+        // Everyone may browse the church directory (2026-07-12). Privileged roles
+        // get full records incl. deactivated members; regular members see ACTIVE
+        // members with NAME + PHONE only (fromDirectory — no email/DOB/role/QR).
+        boolean isPrivileged = RoleChecker.isPastorOrElder(principal)
+                || principal.getRole() == Role.MANAGER;
 
-        return memberRepository.findByChurchId(principal.getChurchId(), pageable)
-                .map(MemberResponse::from);
+        if (isPrivileged) {
+            return memberRepository.findByChurchId(principal.getChurchId(), pageable)
+                    .map(MemberResponse::from);
+        }
+        return memberRepository.findByChurchIdAndStatus(principal.getChurchId(), MemberStatus.ACTIVE, pageable)
+                .map(MemberResponse::fromDirectory);
     }
 
     @Transactional(readOnly = true)
@@ -78,12 +86,16 @@ public class MemberService {
         boolean isPrivileged = RoleChecker.isPastorOrElder(principal) || principal.getRole() == Role.MANAGER;
         boolean isOwnProfile = principal.getMemberId().equals(memberId);
 
-        if (!isPrivileged && !isOwnProfile) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
-        }
-
         Member member = memberRepository.findByChurchIdAndId(principal.getChurchId(), memberId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        // Regular members may view others too — but only the directory view (name + phone)
+        if (!isPrivileged && !isOwnProfile) {
+            if (member.getStatus() != MemberStatus.ACTIVE) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found");
+            }
+            return MemberResponse.fromDirectory(member);
+        }
 
         return MemberResponse.from(member);
     }

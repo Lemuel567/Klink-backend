@@ -58,6 +58,19 @@ public class TwilioSmsService implements SmsService {
         }
     }
 
+    @Override
+    public boolean sendMessage(String phoneNumber, String message) {
+        if (accountSid.isBlank() || phoneNumber == null || phoneNumber.isBlank()) return false;
+        try {
+            Message.creator(new PhoneNumber(phoneNumber), new PhoneNumber(fromNumber), message).create();
+            log.info("[SMS] NOTIFICATION sent to=...{}", last4(phoneNumber));
+            return true;
+        } catch (Exception e) {
+            log.error("[SMS] Notification failed to=...{} reason={}", last4(phoneNumber), e.getMessage());
+            return false;
+        }
+    }
+
     private String last4(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.length() < 4) return "????";
         return phoneNumber.substring(phoneNumber.length() - 4);

@@ -41,7 +41,9 @@ public class Member {
     @Column(name = "phone")
     private String phone;
 
-    @Column(name = "email")
+    // Unique — email is a login identifier; without this constraint a race between
+    // the existence check and the insert can create duplicates and break findByEmail
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(name = "password")

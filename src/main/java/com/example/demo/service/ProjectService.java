@@ -6,7 +6,10 @@ import com.example.demo.model.*;
 import com.example.demo.repository.*;
 import com.example.demo.security.MemberPrincipal;
 import com.example.demo.security.RoleChecker;
+import com.example.demo.event.NotificationEvent;
+import com.example.demo.event.TargetedNotificationEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +37,14 @@ public class ProjectService {
     private final ProjectImageRepository imageRepository;
     private final ProjectContributionRepository contributionRepository;
     private final MemberRepository memberRepository;
-    private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ─── Projects CRUD ───────────────────────────────────────────────────────
 
     public ProjectResponse createProject(CreateProjectRequest request, MemberPrincipal principal) {
-        RoleChecker.requirePastorElderOrManager(principal);
+        // 2026-07-12: creation is Pastor + Manager ONLY (Elders post updates/images
+        // on existing projects but cannot create them)
+        RoleChecker.requirePastorOrManager(principal);
 
         ChurchProject project = ChurchProject.builder()
                 .church(principal.getMember().getChurch())
@@ -108,7 +113,8 @@ public class ProjectService {
     }
 
     public ProjectResponse updateProject(UUID projectId, UpdateProjectRequest request, MemberPrincipal principal) {
-        RoleChecker.requirePastorElderOrManager(principal);
+        // Editing project details is Pastor + Manager only
+        RoleChecker.requirePastorOrManager(principal);
         ChurchProject project = loadProject(projectId, principal.getChurchId());
         guardTerminalStatus(project);
 
@@ -130,7 +136,11 @@ public class ProjectService {
     }
 
     public ProjectResponse updateStatus(UUID projectId, UpdateProjectStatusRequest request, MemberPrincipal principal) {
-        RoleChecker.requirePastorElderOrManager(principal);
+        // Status changes are Pastor + Manager; APPROVAL specifically is Pastor only
+        RoleChecker.requirePastorOrManager(principal);
+        if (request.getStatus() == ProjectStatus.APPROVED) {
+            RoleChecker.require(principal, "Only the Pastor can approve a project", Role.PASTOR);
+        }
         ChurchProject project = loadProject(projectId, principal.getChurchId());
 
         ProjectStatus current = project.getStatus();
@@ -149,12 +159,12 @@ public class ProjectService {
 
         ChurchProject saved = projectRepository.save(project);
 
-        // Notify all church members about major status changes
+        // Notify all church members about major status changes — AFTER_COMMIT, off the request thread
         if (project.isPublic() && (next == ProjectStatus.APPROVED
                 || next == ProjectStatus.IN_PROGRESS
                 || next == ProjectStatus.COMPLETED)) {
             String body = "Project '" + project.getTitle() + "' is now " + next.name().replace("_", " ").toLowerCase();
-            notificationService.notifyAllMembers(principal.getChurchId(), "Project Update", body);
+            eventPublisher.publishEvent(new NotificationEvent(this, principal.getChurchId(), "Project Update", body));
         }
 
         long count = contributionRepository.countDistinctContributorsByProjectId(projectId);
@@ -162,7 +172,8 @@ public class ProjectService {
     }
 
     public void deleteProject(UUID projectId, MemberPrincipal principal) {
-        RoleChecker.requirePastorOrElder(principal);
+        // Deletion is the Pastor's call alone
+        RoleChecker.require(principal, "Only the Pastor can delete a project", Role.PASTOR);
         ChurchProject project = loadProject(projectId, principal.getChurchId());
         project.setDeletedAt(LocalDateTime.now());
         projectRepository.save(project);
@@ -185,13 +196,13 @@ public class ProjectService {
 
         ProjectUpdate saved = updateRepository.save(update);
 
-        // Notify contributors who have contributed to this project
+        // Notify contributors who have contributed to this project — AFTER_COMMIT
         List<UUID> contributorIds = contributionRepository.findDistinctMemberIdsByProjectId(projectId);
         if (!contributorIds.isEmpty()) {
-            List<Member> contributors = memberRepository.findAllById(contributorIds);
-            notificationService.notifyMembers(contributors,
+            eventPublisher.publishEvent(new TargetedNotificationEvent(
+                    this, principal.getChurchId(), contributorIds,
                     "Project Update: " + project.getTitle(),
-                    request.getTitle());
+                    request.getTitle()));
         }
 
         return ProjectUpdateResponse.from(saved);
@@ -287,10 +298,11 @@ public class ProjectService {
         project.setAmountRaised(newTotal);
         projectRepository.save(project);
 
-        // Thank the contributor
-        notificationService.notifyMember(member,
+        // Thank the contributor — AFTER_COMMIT so a rolled-back contribution never sends thanks
+        eventPublisher.publishEvent(new TargetedNotificationEvent(
+                this, principal.getChurchId(), List.of(member.getId()),
                 "Contribution Recorded",
-                "Thank you! Your contribution of " + request.getAmount() + " to '" + project.getTitle() + "' has been recorded.");
+                "Thank you! Your contribution of " + request.getAmount() + " to '" + project.getTitle() + "' has been recorded."));
 
         return ContributionResponse.from(contribution);
     }

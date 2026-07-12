@@ -35,7 +35,6 @@ public class AnnouncementService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final SupabaseStorageService storageService;
-    private final NotificationService notificationService;
     private final ApplicationEventPublisher eventPublisher;
 
     public AnnouncementResponse postAnnouncement(PostAnnouncementRequest request,
@@ -86,26 +85,23 @@ public class AnnouncementService {
 
         announcement = announcementRepository.save(announcement);
 
-        // Step 3 — notify recipients async after commit (via NotificationEvent would notify ALL;
-        // for targeted we call notifyMembers directly — it's in-process and fast enough)
+        // Step 3 — notify recipients async AFTER_COMMIT so a rollback never sends
+        // phantom notifications and large recipient lists never block the request thread
         String notifTitle = "New Announcement: " + request.getTitle();
         String notifBody = request.getBody().length() > 100
                 ? request.getBody().substring(0, 100) + "..."
                 : request.getBody();
 
         if (targetType == AnnouncementTargetType.ALL) {
-            // Publish event so notification fires after commit (existing pattern)
             eventPublisher.publishEvent(new com.example.demo.event.NotificationEvent(
                     this, principal.getChurchId(), notifTitle, notifBody
             ));
         } else {
-            // Targeted — notify only resolved recipients; capture list for lambda
-            final List<Member> finalRecipients = recipients;
-            final String fTitle = notifTitle;
-            final String fBody = notifBody;
-            // Run after this transaction commits via a Spring event trick isn't available here
-            // without a custom event, so we call directly — notifications are fire-and-forget
-            notificationService.notifyMembers(finalRecipients, fTitle, fBody);
+            eventPublisher.publishEvent(new com.example.demo.event.TargetedNotificationEvent(
+                    this, principal.getChurchId(),
+                    recipients.stream().map(Member::getId).toList(),
+                    notifTitle, notifBody
+            ));
         }
 
         log.info("AUDIT announcement_sent actor={} church={} targetType={} recipients={}",
@@ -116,6 +112,13 @@ public class AnnouncementService {
 
     @Transactional(readOnly = true)
     public Page<AnnouncementResponse> getAllAnnouncements(MemberPrincipal principal, Pageable pageable) {
+        // Privileged roles see everything (management view). Regular members must not
+        // read announcements targeted at other roles/groups/members — filter to theirs.
+        Role role = principal.getRole();
+        boolean isPrivileged = role == Role.PASTOR || role == Role.ELDER || role == Role.MANAGER;
+        if (!isPrivileged) {
+            return getAnnouncementsForMember(principal, pageable);
+        }
         return announcementRepository
                 .findByChurchIdOrderByCreatedAtDesc(principal.getChurchId(), pageable)
                 .map(AnnouncementResponse::from);

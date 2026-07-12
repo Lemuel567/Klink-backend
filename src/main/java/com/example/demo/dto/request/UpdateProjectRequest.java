@@ -29,7 +29,7 @@ public class UpdateProjectRequest {
 
     private LocalDate startDate;
     private LocalDate expectedEndDate;
-    private LocalDate actualEndDate;
+    // actualEndDate intentionally absent — it is set only by COMPLETED/CANCELLED status transitions
 
     @Size(max = 500)
     private String location;

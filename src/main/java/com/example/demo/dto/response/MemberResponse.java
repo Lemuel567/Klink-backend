@@ -46,4 +46,17 @@ public class MemberResponse {
                 .createdAt(member.getCreatedAt())
                 .build();
     }
+
+    /**
+     * Directory view for regular members: name and phone number ONLY.
+     * No email, DOB, role, status, QR value, or any other PII.
+     */
+    public static MemberResponse fromDirectory(Member member) {
+        return MemberResponse.builder()
+                .id(member.getId())
+                .fullName(member.getFullName())
+                .phone(member.getPhone())
+                .photoUrl(member.getPhotoUrl())
+                .build();
+    }
 }

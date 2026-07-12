@@ -22,4 +22,9 @@ public interface VerificationTokenRepository extends JpaRepository<VerificationT
     @Modifying
     @Query("DELETE FROM VerificationToken vt WHERE vt.email IN :emails")
     void deleteByEmailIn(@Param("emails") java.util.List<String> emails);
+
+    // Housekeeping: used codes and expired codes serve no purpose — purge weekly
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM VerificationToken vt WHERE vt.used = true OR vt.expiresAt < :cutoff")
+    int deleteUsedAndExpired(@Param("cutoff") java.time.LocalDateTime cutoff);
 }

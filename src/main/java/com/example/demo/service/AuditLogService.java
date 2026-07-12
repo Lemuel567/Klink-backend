@@ -109,6 +109,24 @@ public class AuditLogService {
         log.info("[PROJECT] CONTRIBUTION actorId={} projectId={} memberId={} amount={}", actorId, projectId, memberId, amount);
     }
 
+    // Online payments (Paystack)
+
+    public void onlinePaymentInitiated(UUID memberId, String reference, java.math.BigDecimal amount, String type) {
+        log.info("[PAYSTACK] INITIATED memberId={} reference={} amount={} type={}", memberId, reference, amount, type);
+    }
+
+    public void onlinePaymentCompleted(String reference, String status, java.math.BigDecimal amount) {
+        log.info("[PAYSTACK] COMPLETED reference={} status={} amount={}", reference, status, amount);
+    }
+
+    public void webhookSignatureRejected(String remoteInfo) {
+        log.warn("[PAYSTACK] WEBHOOK_SIGNATURE_REJECTED source={}", remoteInfo);
+    }
+
+    public void webhookReceived(String eventType, String reference) {
+        log.info("[PAYSTACK] WEBHOOK event={} reference={}", eventType, reference);
+    }
+
     // Media uploads
 
     public void mediaUploaded(UUID actorId, String folder, String url) {

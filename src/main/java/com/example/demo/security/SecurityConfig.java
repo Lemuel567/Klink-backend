@@ -6,10 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -34,7 +30,6 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final RateLimitFilter rateLimitFilter;
-    private final UserDetailsServiceImpl userDetailsService;
 
     @Value("${app.cors.allowed-origins:}")
     private List<String> allowedOrigins;
@@ -58,6 +53,11 @@ public class SecurityConfig {
                                 "/api/v1/auth/resend-verification",
                                 "/api/v1/auth/verify-phone",
                                 "/api/v1/auth/resend-phone-verification",
+                                // Paystack server-to-server webhook (HMAC-verified) + browser callback page
+                                "/api/v1/payments/webhook",
+                                "/api/v1/payments/paystack/callback",
+                                // Liveness probe — no data exposed
+                                "/api/v1/health",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()
@@ -88,7 +88,6 @@ public class SecurityConfig {
                         .addHeaderWriter(new StaticHeadersWriter(
                                 "Permissions-Policy", "camera=(), microphone=(), geolocation=()"))
                 )
-                .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(rateLimitFilter, JwtFilter.class);
 
@@ -111,18 +110,9 @@ public class SecurityConfig {
         return source;
     }
 
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+    // NOTE: no DaoAuthenticationProvider / AuthenticationManager beans — login is handled
+    // manually in AuthService (constant-time BCrypt check); the provider was dead config
+    // and produced a misleading Spring Security startup warning.
 
     @Bean
     public PasswordEncoder passwordEncoder() {

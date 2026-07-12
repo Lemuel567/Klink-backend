@@ -28,12 +28,15 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
 
     // Members of a group who have NOT paid dues for the given month.
     // Excludes only CONFIRMED payments — PENDING (auto-generated) records still count as unpaid.
+    // NOT EXISTS instead of NOT IN: a single NULL member_id in the subquery would make
+    // NOT IN return no rows at all, silently emptying the defaulters list.
     @Query("""
         SELECT gm.member FROM GroupMember gm
         WHERE gm.group.id = :groupId
-          AND gm.member.id NOT IN (
-              SELECT p.member.id FROM Payment p
+          AND NOT EXISTS (
+              SELECT 1 FROM Payment p
               WHERE p.group.id = :groupId
+                AND p.member.id = gm.member.id
                 AND p.paymentType = com.example.demo.model.PaymentType.DUES
                 AND p.paymentMonth = :paymentMonth
                 AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED

@@ -8,8 +8,8 @@ import com.example.demo.dto.response.ProjectResponse;
 import com.example.demo.model.*;
 import com.example.demo.repository.*;
 import com.example.demo.security.MemberPrincipal;
-import com.example.demo.service.NotificationService;
 import com.example.demo.service.ProjectService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,7 +39,7 @@ class ProjectServiceTest {
     @Mock ProjectImageRepository imageRepository;
     @Mock ProjectContributionRepository contributionRepository;
     @Mock MemberRepository memberRepository;
-    @Mock NotificationService notificationService;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     @InjectMocks ProjectService projectService;
 
@@ -116,7 +116,27 @@ class ProjectServiceTest {
 
     @Test
     void member_cannot_create_project() {
-        MemberPrincipal p = principal(Role.MEMBER);
+        assertCreateForbidden(Role.MEMBER);
+    }
+
+    // 2026-07-12: creation restricted to Pastor + Manager only
+    @Test
+    void elder_cannot_create_project() {
+        assertCreateForbidden(Role.ELDER);
+    }
+
+    @Test
+    void financial_secretary_cannot_create_project() {
+        assertCreateForbidden(Role.FINANCIAL_SECRETARY);
+    }
+
+    @Test
+    void group_admin_cannot_create_project() {
+        assertCreateForbidden(Role.GROUP_ADMIN);
+    }
+
+    private void assertCreateForbidden(Role callerRole) {
+        MemberPrincipal p = principal(callerRole);
         CreateProjectRequest req = new CreateProjectRequest();
         req.setTitle("X");
         req.setDescription("Y");
@@ -124,6 +144,19 @@ class ProjectServiceTest {
         req.setTargetAmount(BigDecimal.TEN);
 
         assertThatThrownBy(() -> projectService.createProject(req, p))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    // Approval is the Pastor's alone — a Manager may move other statuses but not APPROVED
+    @Test
+    void manager_cannot_approve_project() {
+        MemberPrincipal manager = principal(Role.MANAGER);
+        UpdateProjectStatusRequest req = new UpdateProjectStatusRequest();
+        req.setStatus(ProjectStatus.APPROVED);
+
+        assertThatThrownBy(() -> projectService.updateStatus(UUID.randomUUID(), req, manager))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(e -> ((ResponseStatusException) e).getStatusCode())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -258,7 +291,6 @@ class ProjectServiceTest {
         when(contributionRepository.sumAmountByProjectId(projectId))
                 .thenReturn(BigDecimal.valueOf(500));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(notificationService.notifyMember(any(), any(), any())).thenReturn(true);
 
         RecordProjectContributionRequest req = new RecordProjectContributionRequest();
         req.setMemberId(memberId);
@@ -346,14 +378,14 @@ class ProjectServiceTest {
     // ── delete ────────────────────────────────────────────────────────────────
 
     @Test
-    void only_pastor_or_elder_can_delete_project() {
-        MemberPrincipal manager = principal(Role.MANAGER);
-        UUID projectId = UUID.randomUUID();
-
-        assertThatThrownBy(() -> projectService.deleteProject(projectId, manager))
-                .isInstanceOf(ResponseStatusException.class)
-                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+    void only_pastor_can_delete_project() {
+        for (Role r : new Role[]{Role.MANAGER, Role.ELDER, Role.MEMBER}) {
+            MemberPrincipal caller = principal(r);
+            assertThatThrownBy(() -> projectService.deleteProject(UUID.randomUUID(), caller))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                    .isEqualTo(HttpStatus.FORBIDDEN);
+        }
     }
 
     @Test

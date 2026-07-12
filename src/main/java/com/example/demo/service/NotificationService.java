@@ -27,6 +27,7 @@ import java.util.UUID;
 public class NotificationService {
 
     private final MemberRepository memberRepository;
+    private final SmsService smsService;
 
     private final RestClient restClient = RestClient.create();
 
@@ -48,8 +49,12 @@ public class NotificationService {
                 return sendPushNotification(member.getFcmToken(), title, body);
             }
         } else {
-            if (member.getPhone() != null && !member.getPhone().isBlank()) {
-                return sendSms(member.getPhone(), title + ": " + body);
+            // Prefer the verified E.164 number; fall back to the display phone
+            String phone = (member.getPhoneNumber() != null && !member.getPhoneNumber().isBlank())
+                    ? member.getPhoneNumber()
+                    : member.getPhone();
+            if (phone != null && !phone.isBlank()) {
+                return sendSms(phone, title + ": " + body);
             }
         }
         return false;
@@ -104,10 +109,11 @@ public class NotificationService {
     }
 
     // Returns true if the SMS was accepted by the gateway; false on any failure.
+    // Falls back to Twilio (the verification-SMS provider) when no dedicated
+    // notification gateway is configured — non-smartphone members must not be silently skipped.
     private boolean sendSms(String phoneNumber, String message) {
         if (smsApiUrl == null || smsApiUrl.isBlank()) {
-            log.warn("SMS not configured — skipping SMS notification");
-            return false;
+            return smsService.sendMessage(phoneNumber, message);
         }
         try {
             restClient.post()

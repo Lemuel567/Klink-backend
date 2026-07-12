@@ -47,6 +47,8 @@ public class ChurchDeletionService {
     private final ChurchProjectRepository churchProjectRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final VerificationTokenRepository verificationTokenRepository;
+    private final PrayerRequestRepository prayerRequestRepository;
+    private final PaystackTransactionRepository paystackTransactionRepository;
     private final SupabaseStorageService storageService;
 
     /**
@@ -72,6 +74,8 @@ public class ChurchDeletionService {
                 .collect(Collectors.toList());
 
         // Delete in FK dependency order — children before parents
+        paystackTransactionRepository.deleteAllByChurchId(churchId);
+        prayerRequestRepository.deleteAllByChurchId(churchId);
         projectContributionRepository.deleteAllByChurchId(churchId);
         projectImageRepository.deleteAllByChurchId(churchId);
         projectUpdateRepository.deleteAllByChurchId(churchId);

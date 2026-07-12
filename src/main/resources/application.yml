@@ -2,6 +2,10 @@ server:
   server-header: ""
 
 spring:
+  # No in-memory user: auth is JWT-only (JwtFilter). Without this exclusion Spring Boot
+  # generates a default user and prints its password to the logs at startup.
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DB_URL}
     driver-class-name: org.postgresql.Driver
@@ -89,6 +93,15 @@ security:
     phone-update:
       max-attempts: 3
       window-hours: 24
+
+paystack:
+  secret-key: ${PAYSTACK_SECRET_KEY:}
+  public-key: ${PAYSTACK_PUBLIC_KEY:}
+  base-url: https://api.paystack.co
+  callback-url: ${PAYSTACK_CALLBACK_URL:}
+  # Paystack signs webhooks with your secret key (HMAC-SHA512). A separate
+  # webhook secret is not issued; leave blank to verify with secret-key.
+  webhook-secret: ${PAYSTACK_WEBHOOK_SECRET:}
 
 supabase:
   url: ${SUPABASE_URL:https://kqadpgrcroelumtagsln.supabase.co}

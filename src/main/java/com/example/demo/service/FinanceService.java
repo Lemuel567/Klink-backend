@@ -35,7 +35,7 @@ public class FinanceService {
     private final PaymentRepository paymentRepository;
     private final MemberRepository memberRepository;
     private final ChurchRepository churchRepository;
-    private final NotificationService notificationService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public PaymentResponse recordOffering(RecordOfferingRequest request, MemberPrincipal principal) {
         RoleChecker.requireFinancialSecretary(principal);
@@ -98,8 +98,17 @@ public class FinanceService {
                     "Church welfare amount has not been configured. The Pastor must set it first.");
         }
 
-        int monthsCovered = Math.max(1,
-                request.getAmountPaid().divide(monthlyAmount, 0, RoundingMode.FLOOR).intValue());
+        // Welfare is a fixed monthly amount. The amount paid must be an exact multiple —
+        // anything else silently loses money (a short payment must not buy a full month,
+        // and an overpayment remainder must not vanish from the books).
+        BigDecimal[] division = request.getAmountPaid().divideAndRemainder(monthlyAmount);
+        if (division[1].compareTo(BigDecimal.ZERO) != 0 || division[0].compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Welfare payments must be an exact multiple of the monthly amount ("
+                            + monthlyAmount.toPlainString() + "). Received: "
+                            + request.getAmountPaid().toPlainString());
+        }
+        int monthsCovered = division[0].intValue();
 
         YearMonth startMonth = YearMonth.parse(request.getPaymentMonth());
         List<PaymentResponse> responses = new ArrayList<>();
@@ -147,13 +156,14 @@ public class FinanceService {
                 principal.getChurchId(), paymentMonth,
                 MemberStatus.ACTIVE, PaymentType.WELFARE);
 
-        for (Member member : defaulters) {
-            notificationService.notifyMember(
-                    member,
-                    "Welfare Reminder",
-                    "You have not paid your welfare for " + paymentMonth + ". Please pay as soon as possible."
-            );
-        }
+        if (defaulters.isEmpty()) return;
+
+        // AFTER_COMMIT event — sending hundreds of push/SMS must not block the request thread
+        eventPublisher.publishEvent(new com.example.demo.event.TargetedNotificationEvent(
+                this, principal.getChurchId(),
+                defaulters.stream().map(Member::getId).toList(),
+                "Welfare Reminder",
+                "You have not paid your welfare for " + paymentMonth + ". Please pay as soon as possible."));
     }
 
     @Transactional(readOnly = true)

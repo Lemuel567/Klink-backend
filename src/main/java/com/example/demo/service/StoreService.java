@@ -115,7 +115,9 @@ public class StoreService {
                         principal.getChurchId(), request.getItemId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found"));
 
-        if (item.getStatus() == StoreItemStatus.SOLD_OUT) {
+        // Guard on quantity as well as status — if the two ever drift, quantity
+        // must never go negative
+        if (item.getStatus() == StoreItemStatus.SOLD_OUT || item.getQuantity() <= 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This item is sold out");
         }

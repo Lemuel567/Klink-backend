@@ -219,6 +219,16 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS);
         }
 
+        // Members of a soft-deleted church cannot log in — except an Elder, who needs a
+        // token to call POST /church/restore during the 30-day grace period.
+        if (member.getChurch().getDeletedAt() != null && member.getRole() != Role.ELDER) {
+            auditLog.loginFailure(maskIdentifier(hasEmail, identifier), ip);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "This church is scheduled for deletion on "
+                            + member.getChurch().getDeletedAt().plusDays(30).toLocalDate()
+                            + ". Contact an Elder to restore it.");
+        }
+
         // Extract church fields before resetLoginAttempts clears the PC (clearAutomatically=true detaches member)
         UUID churchId = member.getChurch().getId();
         String churchCode = member.getChurch().getChurchCode();

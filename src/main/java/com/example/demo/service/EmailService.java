@@ -37,6 +37,23 @@ public class EmailService {
                 "God bless,\nThe Klink Team");
     }
 
+    public void sendPaymentReceipt(String toEmail, String memberName, String churchName,
+                                   String amountGhs, String paymentTypeLabel,
+                                   String reference, String channel) {
+        send(toEmail,
+                "Payment Receipt — Klink Church App",
+                "Dear " + memberName + ",\n\n" +
+                "Thank you for your faithful giving to " + churchName + ".\n\n" +
+                "Payment Details:\n" +
+                "Amount: GHS " + amountGhs + "\n" +
+                "Type: " + paymentTypeLabel + "\n" +
+                "Reference: " + reference + "\n" +
+                "Channel: " + (channel == null ? "online" : channel.replace('_', ' ')) + "\n\n" +
+                "\"Each of you should give what you have decided in your heart to give.\" — 2 Corinthians 9:7\n\n" +
+                "God bless you for your faithfulness.\n\n" +
+                churchName + "\nPowered by Klink");
+    }
+
     private void send(String to, String subject, String text) {
         if (fromEmail == null || fromEmail.isBlank()) {
             log.warn("Mail not configured. Skipping email to {}", to);
