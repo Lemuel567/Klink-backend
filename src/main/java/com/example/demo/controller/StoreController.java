@@ -32,6 +32,26 @@ public class StoreController {
 
     private final StoreService storeService;
 
+    // JSON create/update (2026-07-12): photos are pre-uploaded via POST /media/upload,
+    // their URLs sent in photoUrls — supports multiple pictures per item.
+    @PostMapping(value = "/items", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<StoreItemResponse> addItemJson(
+            @org.springframework.web.bind.annotation.RequestBody AddStoreItemRequest request,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(storeService.addItem(request, principal));
+    }
+
+    @PutMapping(value = "/items/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<StoreItemResponse> updateItemJson(
+            @PathVariable UUID id,
+            @org.springframework.web.bind.annotation.RequestBody UpdateStoreItemRequest request,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(storeService.updateItem(id, request, principal));
+    }
+
     @PostMapping(value = "/items", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StoreItemResponse> addItem(
             @RequestPart("name") String name,

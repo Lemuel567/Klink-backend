@@ -42,8 +42,14 @@ public class StoreItem {
     @Column(name = "category")
     private String category;
 
+    /** Cover photo (first of photoUrls when set via the JSON create flow). */
     @Column(name = "photo_url")
     private String photoUrl;
+
+    /** Multiple pictures of the same item (2026-07-12) — jsonb list of URLs. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "photo_urls", columnDefinition = "jsonb")
+    private java.util.List<String> photoUrls;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

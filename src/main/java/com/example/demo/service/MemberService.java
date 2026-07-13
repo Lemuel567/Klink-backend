@@ -66,19 +66,27 @@ public class MemberService {
     }
 
     @Transactional(readOnly = true)
-    public Page<MemberResponse> getAllMembers(MemberPrincipal principal, Pageable pageable) {
+    public Page<MemberResponse> getAllMembers(MemberPrincipal principal, String search, Pageable pageable) {
         // Everyone may browse the church directory (2026-07-12). Privileged roles
         // get full records incl. deactivated members; regular members see ACTIVE
         // members with NAME + PHONE only (fromDirectory — no email/DOB/role/QR).
+        // Optional ?search= filters case-insensitively by name / email / phone.
         boolean isPrivileged = RoleChecker.isPastorOrElder(principal)
                 || principal.getRole() == Role.MANAGER;
+        boolean hasSearch = search != null && !search.trim().isEmpty();
+        String term = hasSearch ? search.trim() : null;
+        UUID churchId = principal.getChurchId();
 
         if (isPrivileged) {
-            return memberRepository.findByChurchId(principal.getChurchId(), pageable)
-                    .map(MemberResponse::from);
+            Page<Member> page = hasSearch
+                    ? memberRepository.searchByChurchId(churchId, term, pageable)
+                    : memberRepository.findByChurchId(churchId, pageable);
+            return page.map(MemberResponse::from);
         }
-        return memberRepository.findByChurchIdAndStatus(principal.getChurchId(), MemberStatus.ACTIVE, pageable)
-                .map(MemberResponse::fromDirectory);
+        Page<Member> page = hasSearch
+                ? memberRepository.searchByChurchIdAndStatus(churchId, MemberStatus.ACTIVE, term, pageable)
+                : memberRepository.findByChurchIdAndStatus(churchId, MemberStatus.ACTIVE, pageable);
+        return page.map(MemberResponse::fromDirectory);
     }
 
     @Transactional(readOnly = true)

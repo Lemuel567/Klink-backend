@@ -43,9 +43,10 @@ public class MemberController {
     @GetMapping
     public ResponseEntity<Page<MemberResponse>> getAllMembers(
             Authentication authentication,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String search,
             @PageableDefault(size = 20) Pageable pageable) {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
-        return ResponseEntity.ok(memberService.getAllMembers(principal, pageable));
+        return ResponseEntity.ok(memberService.getAllMembers(principal, search, pageable));
     }
 
     @GetMapping("/{id}")

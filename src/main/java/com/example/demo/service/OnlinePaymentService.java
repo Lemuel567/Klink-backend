@@ -51,7 +51,16 @@ public class OnlinePaymentService {
     // ── Initiate ──────────────────────────────────────────────────────────────
 
     public InitiatePaymentResponse initiatePayment(InitiatePaymentRequest request, MemberPrincipal principal) {
+        // 2026-07-12: a FINANCIAL_SECRETARY may initiate a payment ON BEHALF OF
+        // another member (must be in the same church). Everyone else pays for self —
+        // a stray memberId from a non-FinSec caller is ignored, never trusted.
         Member member = principal.getMember();
+        if (request.getMemberId() != null
+                && !request.getMemberId().equals(principal.getMemberId())
+                && principal.getRole() == Role.FINANCIAL_SECRETARY) {
+            member = memberRepository.findByChurchIdAndId(principal.getChurchId(), request.getMemberId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+        }
 
         String email = member.getEmail();
         if (email == null || email.isBlank()) {
@@ -77,12 +86,14 @@ public class OnlinePaymentService {
 
         PaystackService.InitializedTransaction init = paystackService.initializeTransaction(
                 email, amount, reference,
-                principal.getChurchId(), principal.getMemberId(),
+                principal.getChurchId(), member.getId(),
                 request.getPaymentType().name(), request.getProjectId());
 
+        // Transaction belongs to the GIVER (member), not the FinSec who initiated it —
+        // the ledger record, receipt, and history all credit the right person.
         PaystackTransaction tx = PaystackTransaction.builder()
                 .churchId(principal.getChurchId())
-                .memberId(principal.getMemberId())
+                .memberId(member.getId())
                 .amount(amount)
                 .paymentType(request.getPaymentType())
                 .paystackReference(reference)

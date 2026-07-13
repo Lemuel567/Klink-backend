@@ -6,6 +6,7 @@ import com.example.demo.dto.request.UpdateStoreItemRequest;
 import com.example.demo.dto.response.StoreItemResponse;
 import com.example.demo.dto.response.StorePaymentResponse;
 import com.example.demo.model.*;
+import com.example.demo.repository.MemberRepository;
 import com.example.demo.repository.StoreItemRepository;
 import com.example.demo.repository.StorePaymentRepository;
 import com.example.demo.security.MemberPrincipal;
@@ -30,8 +31,67 @@ import java.util.UUID;
 public class StoreService {
 
     private final StoreItemRepository storeItemRepository;
+    private final MemberRepository memberRepository;
     private final StorePaymentRepository storePaymentRepository;
     private final SupabaseStorageService storageService;
+
+    /**
+     * JSON create flow (2026-07-12): the Manager pre-uploads photos through
+     * POST /media/upload and sends their URLs here — supports MULTIPLE pictures
+     * of the same item. The first photo becomes the cover (photoUrl).
+     */
+    public StoreItemResponse addItem(AddStoreItemRequest request, MemberPrincipal principal) {
+        RoleChecker.requireManager(principal);
+
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Item name is required");
+        }
+        if (request.getPrice() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is required");
+        }
+        if (request.getQuantity() == null || request.getQuantity() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be zero or more");
+        }
+
+        java.util.List<String> photos = request.getPhotoUrls();
+        StoreItem item = StoreItem.builder()
+                .church(principal.getMember().getChurch())
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .quantity(request.getQuantity())
+                .category(request.getCategory())
+                .photoUrls(photos)
+                .photoUrl(photos != null && !photos.isEmpty() ? photos.get(0) : null)
+                .status(request.getQuantity() > 0 ? StoreItemStatus.AVAILABLE : StoreItemStatus.SOLD_OUT)
+                .createdBy(principal.getMemberId())
+                .build();
+
+        return StoreItemResponse.from(storeItemRepository.save(item));
+    }
+
+    /** JSON update flow — patch semantics; photoUrls replaces the whole gallery when sent. */
+    public StoreItemResponse updateItem(UUID itemId, UpdateStoreItemRequest request, MemberPrincipal principal) {
+        RoleChecker.requireManager(principal);
+
+        StoreItem item = storeItemRepository.findByChurchIdAndId(principal.getChurchId(), itemId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found"));
+
+        if (request.getName() != null) item.setName(request.getName());
+        if (request.getDescription() != null) item.setDescription(request.getDescription());
+        if (request.getPrice() != null) item.setPrice(request.getPrice());
+        if (request.getCategory() != null) item.setCategory(request.getCategory());
+        if (request.getPhotoUrls() != null) {
+            item.setPhotoUrls(request.getPhotoUrls());
+            item.setPhotoUrl(request.getPhotoUrls().isEmpty() ? null : request.getPhotoUrls().get(0));
+        }
+        if (request.getQuantity() != null) {
+            item.setQuantity(request.getQuantity());
+            item.setStatus(request.getQuantity() > 0 ? StoreItemStatus.AVAILABLE : StoreItemStatus.SOLD_OUT);
+        }
+
+        return StoreItemResponse.from(storeItemRepository.save(item));
+    }
 
     public StoreItemResponse addItem(AddStoreItemRequest request,
                                       MultipartFile photo,
@@ -111,6 +171,22 @@ public class StoreService {
     }
 
     public StorePaymentResponse buyItem(BuyStoreItemRequest request, MemberPrincipal principal) {
+        // 2026-07-12: a FINANCIAL_SECRETARY may record an offline/cash sale ON
+        // BEHALF OF another member (same church). The payment reference is only
+        // mandatory for member self-purchases (MoMo); FinSec cash sales may
+        // leave it blank or use a receipt number.
+        boolean isFinSec = principal.getRole() == Role.FINANCIAL_SECRETARY;
+        Member buyer = principal.getMember();
+        if (request.getMemberId() != null
+                && !request.getMemberId().equals(principal.getMemberId())
+                && isFinSec) {
+            buyer = memberRepository.findByChurchIdAndId(principal.getChurchId(), request.getMemberId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+        }
+        if (!isFinSec && (request.getMomoReference() == null || request.getMomoReference().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mobile Money reference is required");
+        }
+
         StoreItem item = storeItemRepository.findByChurchIdAndIdForUpdate(
                         principal.getChurchId(), request.getItemId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found"));
@@ -132,7 +208,7 @@ public class StoreService {
 
         StorePayment payment = StorePayment.builder()
                 .church(principal.getMember().getChurch())
-                .member(principal.getMember())
+                .member(buyer)
                 .item(item)
                 .amount(item.getPrice())
                 .datePaid(request.getDatePaid() != null ? request.getDatePaid() : LocalDate.now())

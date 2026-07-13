@@ -40,6 +40,27 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByGroupIdAndPaymentMonth(UUID groupId, String paymentMonth);
 
+    // Group money — always scoped to a single group_id and never mixed into any
+    // church-wide total (church finance queries only sum OFFERING/TITHE/WELFARE).
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
+        WHERE p.group.id = :groupId AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+        """)
+    java.math.BigDecimal sumConfirmedByGroupId(@Param("groupId") UUID groupId);
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
+        WHERE p.group.id = :groupId AND p.paymentMonth = :paymentMonth
+          AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+        """)
+    java.math.BigDecimal sumConfirmedByGroupIdAndMonth(
+            @Param("groupId") UUID groupId, @Param("paymentMonth") String paymentMonth);
+
+    long countByGroupIdAndPaymentMonthAndStatus(
+            UUID groupId, String paymentMonth, com.example.demo.model.PaymentStatus status);
+
+    List<Payment> findTop10ByGroupIdOrderByCreatedAtDesc(UUID groupId);
+
     boolean existsByChurchIdAndPaymentTypeAndPaymentDate(UUID churchId, PaymentType paymentType, java.time.LocalDate paymentDate);
 
     @Query("SELECT p FROM Payment p WHERE p.group.id = :groupId AND p.member.id = :memberId AND p.paymentMonth = :paymentMonth")

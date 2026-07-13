@@ -84,7 +84,7 @@ class KlinkSecurityTest {
         when(memberRepository.findByChurchId(eq(churchA), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        memberService.getAllMembers(principal, Pageable.ofSize(20));
+        memberService.getAllMembers(principal, null, Pageable.ofSize(20));
 
         verify(memberRepository).findByChurchId(eq(churchA), any(Pageable.class));
         verify(memberRepository, never()).findByChurchId(eq(churchB), any(Pageable.class));
@@ -209,6 +209,7 @@ class KlinkSecurityTest {
 
         BuyStoreItemRequest req = new BuyStoreItemRequest();
         ReflectionTestUtils.setField(req, "itemId", itemId);
+        ReflectionTestUtils.setField(req, "momoReference", "MOMO-TEST-123");
 
         storeService.buyItem(req, member);
 
@@ -234,6 +235,7 @@ class KlinkSecurityTest {
 
         BuyStoreItemRequest req = new BuyStoreItemRequest();
         ReflectionTestUtils.setField(req, "itemId", itemId);
+        ReflectionTestUtils.setField(req, "momoReference", "MOMO-TEST-123");
 
         assertThatThrownBy(() -> storeService.buyItem(req, member))
                 .isInstanceOf(ResponseStatusException.class)

@@ -24,6 +24,8 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> 
 
     boolean existsByGroupIdAndMemberId(UUID groupId, UUID memberId);
 
+    long countByGroupId(UUID groupId);
+
     void deleteByGroupIdAndMemberId(UUID groupId, UUID memberId);
 
     // Members of a group who have NOT paid dues for the given month.

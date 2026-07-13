@@ -29,8 +29,15 @@ public class SupabaseStorageService {
 
     @PostConstruct
     void init() {
+        // 2026-07-12: Supabase's NEW key format (sb_secret_...) is not a JWT —
+        // sent only as "Authorization: Bearer" the gateway rejects it with
+        // "Invalid Compact JWS" (this silently broke EVERY photo upload). The
+        // apikey header authenticates new-format keys and is harmless for
+        // legacy JWT keys, so send BOTH. The klink-storage bucket must exist
+        // (created 2026-07-12; it had never been created).
         this.restClient = RestClient.builder()
                 .baseUrl(supabaseUrl)
+                .defaultHeader("apikey", serviceKey)
                 .defaultHeader("Authorization", "Bearer " + serviceKey)
                 .build();
     }

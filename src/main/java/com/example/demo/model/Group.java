@@ -42,6 +42,9 @@ public class Group {
     @Column(name = "dues_amount", precision = 19, scale = 2)
     private BigDecimal duesAmount;
 
+    @Column(name = "photo_url", columnDefinition = "TEXT")
+    private String photoUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_admin_id")
     private Member groupAdmin;

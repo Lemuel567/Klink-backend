@@ -20,6 +20,32 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
 
     Page<Member> findByChurchId(UUID churchId, Pageable pageable);
 
+    // Directory search (2026-07-12): case-insensitive on fullName / email / phone,
+    // always church-scoped. Two variants — leaders search everyone, regular
+    // members search ACTIVE only (matches directory privacy in MemberService).
+    @Query("""
+        SELECT m FROM Member m
+        WHERE m.church.id = :churchId
+          AND (LOWER(m.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(COALESCE(m.email, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR COALESCE(m.phone, '') LIKE CONCAT('%', :search, '%'))
+        """)
+    Page<Member> searchByChurchId(@Param("churchId") UUID churchId,
+                                  @Param("search") String search,
+                                  Pageable pageable);
+
+    @Query("""
+        SELECT m FROM Member m
+        WHERE m.church.id = :churchId
+          AND m.status = :status
+          AND (LOWER(m.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR COALESCE(m.phone, '') LIKE CONCAT('%', :search, '%'))
+        """)
+    Page<Member> searchByChurchIdAndStatus(@Param("churchId") UUID churchId,
+                                           @Param("status") MemberStatus status,
+                                           @Param("search") String search,
+                                           Pageable pageable);
+
     Optional<Member> findByChurchIdAndId(UUID churchId, UUID id);
 
     Optional<Member> findByEmail(String email);

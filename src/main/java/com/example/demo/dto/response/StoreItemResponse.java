@@ -20,6 +20,7 @@ public class StoreItemResponse {
     private Integer quantity;
     private String category;
     private String photoUrl;
+    private java.util.List<String> photoUrls;
     private StoreItemStatus status;
     private UUID createdBy;
     private LocalDateTime createdAt;
@@ -33,6 +34,7 @@ public class StoreItemResponse {
                 .quantity(item.getQuantity())
                 .category(item.getCategory())
                 .photoUrl(item.getPhotoUrl())
+                .photoUrls(item.getPhotoUrls())
                 .status(item.getStatus())
                 .createdBy(item.getCreatedBy())
                 .createdAt(item.getCreatedAt())

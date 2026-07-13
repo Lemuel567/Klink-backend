@@ -30,4 +30,11 @@ public class InitiatePaymentRequest {
 
     /** Required when paymentType is PROJECT_CONTRIBUTION. */
     private UUID projectId;
+
+    /**
+     * Optional (2026-07-12): a FINANCIAL_SECRETARY may initiate a payment ON
+     * BEHALF OF another member of the same church (e.g. member hands over their
+     * phone / pays at the desk). Null or non-FinSec caller → pays for self.
+     */
+    private UUID memberId;
 }

@@ -16,4 +16,7 @@ public class UpdateStoreItemRequest {
     private BigDecimal price;
     private Integer quantity;
     private String category;
+
+    /** Multiple pictures of the item — pre-uploaded via POST /media/upload. */
+    private java.util.List<String> photoUrls;
 }
