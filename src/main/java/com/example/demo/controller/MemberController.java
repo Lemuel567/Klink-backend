@@ -74,6 +74,16 @@ public class MemberController {
         return ResponseEntity.ok(memberService.getQrCode(id, principal));
     }
 
+    // POST /api/v1/members/me/leave — a member removes THEMSELVES from the church.
+    // Declared before /{id}/... routes purely for readability; "me" segments never
+    // clash with UUID path variables anyway (UUID.fromString would 400 on "me").
+    @PostMapping("/me/leave")
+    public ResponseEntity<Void> leaveChurch(Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        memberService.leaveChurch(principal);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/deactivate")
     public ResponseEntity<Void> deactivateMember(
             @PathVariable UUID id,

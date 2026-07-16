@@ -40,6 +40,9 @@ public class DuesReminderScheduler {
             page = groupRepository.findByStatus(GroupStatus.ACTIVE, pageable);
 
             for (Group group : page.getContent()) {
+                // Skip groups of churches in their 30-day deletion grace period
+                if (group.getChurch().getDeletedAt() != null) continue;
+
                 List<Member> defaulters = groupMemberRepository
                         .findGroupDuesDefaulters(group.getId(), currentMonth);
 

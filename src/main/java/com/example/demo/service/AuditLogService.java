@@ -77,6 +77,10 @@ public class AuditLogService {
         log.info("[AUTH] LOGIN_VIA_PHONE memberId={} phone=...{} ip={}", memberId, last4(phoneNumber), ip);
     }
 
+    public void memberLeftChurch(UUID memberId, UUID churchId) {
+        log.warn("[MEMBER] LEFT_CHURCH memberId={} churchId={} (self-deactivated)", memberId, churchId);
+    }
+
     // Facilities
 
     public void facilityCreated(UUID actorId, UUID facilityId, String name) {

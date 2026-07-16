@@ -239,7 +239,10 @@ public class StoreService {
 
     @Transactional(readOnly = true)
     public Page<StorePaymentResponse> getStoreRevenue(MemberPrincipal principal, Pageable pageable) {
-        RoleChecker.requireFinancialSecretaryOrPrivileged(principal);
+        // Manager included: they alone mark payments collected (markCollected), so they
+        // must be able to see the payments list — excluding them broke the collect flow.
+        RoleChecker.require(principal, "Access denied",
+                Role.FINANCIAL_SECRETARY, Role.PASTOR, Role.ELDER, Role.MANAGER);
 
         return storePaymentRepository.findByChurchId(principal.getChurchId(), pageable)
                 .map(StorePaymentResponse::from);

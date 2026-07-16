@@ -63,6 +63,14 @@ public class SermonController {
         return ResponseEntity.ok(sermonService.getAllSermons(principal, pageable));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<SermonResponse> getSermon(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(sermonService.getSermon(id, principal));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteSermon(
             @PathVariable UUID id,

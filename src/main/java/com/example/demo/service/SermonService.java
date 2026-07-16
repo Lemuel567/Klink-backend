@@ -83,6 +83,13 @@ public class SermonService {
                 .map(SermonResponse::from);
     }
 
+    @Transactional(readOnly = true)
+    public SermonResponse getSermon(UUID sermonId, MemberPrincipal principal) {
+        Sermon sermon = sermonRepository.findByChurchIdAndId(principal.getChurchId(), sermonId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sermon not found"));
+        return SermonResponse.from(sermon);
+    }
+
     public void deleteSermon(UUID sermonId, MemberPrincipal principal) {
         Role role = principal.getRole();
         if (role != Role.PASTOR && role != Role.ELDER && role != Role.MANAGER) {

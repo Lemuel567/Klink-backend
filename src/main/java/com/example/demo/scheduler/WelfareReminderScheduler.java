@@ -39,6 +39,8 @@ public class WelfareReminderScheduler {
         do {
             chunk = churchRepository.findAll(PageRequest.of(page++, CHURCH_PAGE_SIZE));
             chunk.forEach(church -> {
+                // Churches in their 30-day deletion grace period must not keep nagging members
+                if (church.getDeletedAt() != null) return;
                 List<Member> defaulters = memberRepository.findWelfareDefaulters(
                         church.getId(), currentMonth, MemberStatus.ACTIVE, PaymentType.WELFARE);
                 for (Member member : defaulters) {

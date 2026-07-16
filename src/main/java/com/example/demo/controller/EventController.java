@@ -39,6 +39,14 @@ public class EventController {
         return ResponseEntity.ok(eventService.getAllEvents(principal, pageable));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<EventResponse> getEvent(
+            @PathVariable UUID id,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(eventService.getEvent(id, principal));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEvent(
             @PathVariable UUID id,

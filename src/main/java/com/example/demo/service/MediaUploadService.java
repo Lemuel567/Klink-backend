@@ -10,7 +10,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -25,13 +24,6 @@ public class MediaUploadService {
             "image/webp",
             "image/heic",
             "image/heif"
-    );
-
-    // Magic bytes: prefix → mime type
-    private static final Map<byte[], String> MAGIC = Map.of(
-            new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}, "image/jpeg",
-            new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47}, "image/png",
-            new byte[]{0x52, 0x49, 0x46, 0x46}, "image/webp"   // RIFF header (WebP)
     );
 
     private final SupabaseStorageService storageService;

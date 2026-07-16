@@ -182,6 +182,37 @@ public class MemberService {
         memberRepository.save(member);
     }
 
+    /**
+     * A member removes THEMSELVES from the church (self-service, any role).
+     * Deactivates the account, kills every session (tokenVersion bump + refresh
+     * revocation), and clears the push token so the device stops receiving pushes.
+     * Leadership can still see the record and reactivate if the person returns.
+     */
+    public void leaveChurch(MemberPrincipal principal) {
+        Member member = memberRepository.findByChurchIdAndId(principal.getChurchId(), principal.getMemberId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found"));
+
+        // Same safeguard as deactivateMember: the only Pastor cannot walk away
+        // when no Elder exists — nobody could ever appoint a replacement.
+        if (member.getRole() == Role.PASTOR) {
+            long elderCount = memberRepository.countByChurchIdAndRole(principal.getChurchId(), Role.ELDER);
+            if (elderCount == 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "You are the only Pastor and there are no Elders. Appoint an Elder before leaving so the church can continue.");
+            }
+        }
+
+        member.setStatus(MemberStatus.DEACTIVATED);
+        member.setDeactivatedBy(principal.getMemberId()); // self
+        member.setDeactivatedAt(LocalDateTime.now());
+        member.setFcmToken(null);
+        member.setTokenVersion(member.getTokenVersion() + 1);
+        memberRepository.save(member);
+        refreshTokenRepository.revokeAllForMember(principal.getMemberId());
+
+        auditLog.memberLeftChurch(principal.getMemberId(), principal.getChurchId());
+    }
+
     public void reactivateMember(UUID memberId, MemberPrincipal principal) {
         RoleChecker.requirePastorElderOrManager(principal);
 

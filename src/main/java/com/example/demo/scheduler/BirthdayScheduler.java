@@ -32,6 +32,8 @@ public class BirthdayScheduler {
                 today.getMonthValue(), today.getDayOfMonth(), MemberStatus.ACTIVE);
 
         for (Member member : birthdayMembers) {
+            // Skip members of churches in their 30-day deletion grace period
+            if (member.getChurch().getDeletedAt() != null) continue;
             String firstName = member.getFullName().split(" ")[0];
             notificationService.notifyMember(
                     member,

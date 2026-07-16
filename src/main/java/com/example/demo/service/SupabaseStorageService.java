@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Service
@@ -194,6 +195,15 @@ public class SupabaseStorageService {
         if (b.length >= 12
                 && b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x46
                 && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) return true;
+        // HEIC/HEIF (default iPhone photos): ISO-BMFF 'ftyp' box at offset 4 with an
+        // heic/heix/hevc/mif1/msf1 brand. MediaUploadService accepts HEIC, so this
+        // second gate must too — without this branch every iPhone photo 400'd here.
+        if (b.length >= 12
+                && b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70) {
+            String brand = new String(b, 8, 4, StandardCharsets.US_ASCII);
+            return brand.startsWith("hei") || brand.startsWith("hev")
+                    || brand.startsWith("mif1") || brand.startsWith("msf1");
+        }
         return false;
     }
 

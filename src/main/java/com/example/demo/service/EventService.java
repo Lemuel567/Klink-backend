@@ -54,6 +54,13 @@ public class EventService {
                 .map(EventResponse::from);
     }
 
+    @Transactional(readOnly = true)
+    public EventResponse getEvent(UUID eventId, MemberPrincipal principal) {
+        Event event = eventRepository.findByChurchIdAndId(principal.getChurchId(), eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found"));
+        return EventResponse.from(event);
+    }
+
     public void deleteEvent(UUID eventId, MemberPrincipal principal) {
         RoleChecker.requirePastorElderOrManager(principal);
         Event event = eventRepository.findByChurchIdAndId(principal.getChurchId(), eventId)
