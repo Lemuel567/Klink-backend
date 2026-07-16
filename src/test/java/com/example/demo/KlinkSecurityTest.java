@@ -165,7 +165,7 @@ class KlinkSecurityTest {
     }
 
     /**
-     * An Elder cannot demote another Elder, even themselves.
+     * An Elder cannot revoke Elder privileges from any Elder, including themselves.
      */
     @Test
     void assignRole_elderCannotDemoteElder() {
@@ -192,8 +192,9 @@ class KlinkSecurityTest {
     // ── 3. Store purchase — sold-out protection ───────────────────────────────
 
     /**
-     * Buying the last item in stock must decrement quantity to 0 and flip
-     * status to SOLD_OUT so subsequent buyers are rejected.
+     * Purchasing the final unit must decrement the inventory to zero and mark
+     * the item as SOLD_OUT, preventing any subsequent buyers from completing
+     * the purchase.
      */
     @Test
     void buyItem_lastItemSetsStatusToSoldOut() {
@@ -219,9 +220,9 @@ class KlinkSecurityTest {
     }
 
     /**
-     * Attempting to buy an already-sold-out item must throw 409 Conflict,
-     * which is what the second concurrent buyer receives after the first
-     * buyer takes the last unit.
+     * Purchasing an item after its inventory has been exhausted must return
+     * HTTP 409 Conflict. This is the expected outcome for the second concurrent
+     * buyer after the first buyer successfully purchases the last available unit.
      */
     @Test
     void buyItem_soldOutItemThrowsConflict() {
