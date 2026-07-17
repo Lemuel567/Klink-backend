@@ -88,6 +88,22 @@ public class AnnouncementController {
         return ResponseEntity.ok(announcementService.getAnnouncementsForMember(principal, pageable));
     }
 
+    // POST /api/v1/announcements/{id}/read — mark one announcement as read for the caller
+    @PostMapping("/{id}/read")
+    public ResponseEntity<Void> markRead(@PathVariable UUID id, Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        announcementService.markRead(id, principal);
+        return ResponseEntity.noContent().build();
+    }
+
+    // POST /api/v1/announcements/read-all — mark every visible announcement as read
+    @PostMapping("/read-all")
+    public ResponseEntity<Void> markAllRead(Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        announcementService.markAllRead(principal);
+        return ResponseEntity.noContent().build();
+    }
+
     // GET /api/v1/announcements/groups — list of groups for target selector (privileged)
     @GetMapping("/groups")
     public ResponseEntity<List<GroupSummaryResponse>> getGroupsForTargeting(Authentication authentication) {

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
     private final MemberRepository memberRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
@@ -119,9 +120,10 @@ public class AnnouncementService {
         if (!isPrivileged) {
             return getAnnouncementsForMember(principal, pageable);
         }
-        return announcementRepository
-                .findByChurchIdOrderByCreatedAtDesc(principal.getChurchId(), pageable)
-                .map(AnnouncementResponse::from);
+        Page<Announcement> page = announcementRepository
+                .findByChurchIdOrderByCreatedAtDesc(principal.getChurchId(), pageable);
+        Set<UUID> readIds = readIdsFor(principal, page.getContent());
+        return page.map(a -> AnnouncementResponse.from(a, readIds.contains(a.getId())));
     }
 
     @Transactional(readOnly = true)
@@ -138,17 +140,75 @@ public class AnnouncementService {
         // Fetch recent 200 announcements and filter in memory (church-scale volumes)
         List<Announcement> all = announcementRepository.findTop200ByChurchIdOrderByCreatedAtDesc(churchId);
 
-        List<AnnouncementResponse> filtered = all.stream()
+        List<Announcement> filtered = all.stream()
                 .filter(a -> isAnnouncementForMember(a, memberId, memberRole, memberGroupIds))
-                .map(AnnouncementResponse::from)
                 .collect(Collectors.toList());
 
-        // Manual pagination
+        // Manual pagination (map only the page slice, and only look up read state for it)
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), filtered.size());
-        List<AnnouncementResponse> page = start >= filtered.size() ? List.of() : filtered.subList(start, end);
+        List<Announcement> pageItems = start >= filtered.size() ? List.of() : filtered.subList(start, end);
+        Set<UUID> readIds = readIdsFor(principal, pageItems);
+        List<AnnouncementResponse> page = pageItems.stream()
+                .map(a -> AnnouncementResponse.from(a, readIds.contains(a.getId())))
+                .collect(Collectors.toList());
 
         return new PageImpl<>(page, pageable, filtered.size());
+    }
+
+    /** Marks a single announcement read for the calling member (idempotent). */
+    public void markRead(UUID announcementId, MemberPrincipal principal) {
+        Announcement announcement = announcementRepository
+                .findByChurchIdAndId(principal.getChurchId(), announcementId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Announcement not found"));
+
+        if (!announcementReadRepository.existsByAnnouncementIdAndMemberId(announcementId, principal.getMemberId())) {
+            announcementReadRepository.save(AnnouncementRead.builder()
+                    .church(principal.getMember().getChurch())
+                    .announcement(announcement)
+                    .memberId(principal.getMemberId())
+                    .build());
+        }
+    }
+
+    /** Marks every announcement currently visible to the member as read. */
+    public void markAllRead(MemberPrincipal principal) {
+        UUID churchId = principal.getChurchId();
+        UUID memberId = principal.getMemberId();
+        Role role = principal.getRole();
+        boolean isPrivileged = role == Role.PASTOR || role == Role.ELDER || role == Role.MANAGER;
+
+        List<Announcement> recent = announcementRepository.findTop200ByChurchIdOrderByCreatedAtDesc(churchId);
+        List<Announcement> visible;
+        if (isPrivileged) {
+            visible = recent;
+        } else {
+            Set<UUID> memberGroupIds = new HashSet<>(
+                    groupMemberRepository.findGroupIdsByChurchIdAndMemberId(churchId, memberId));
+            visible = recent.stream()
+                    .filter(a -> isAnnouncementForMember(a, memberId, role, memberGroupIds))
+                    .collect(Collectors.toList());
+        }
+        if (visible.isEmpty()) return;
+
+        Set<UUID> alreadyRead = readIdsFor(principal, visible);
+        List<AnnouncementRead> toSave = visible.stream()
+                .filter(a -> !alreadyRead.contains(a.getId()))
+                .map(a -> AnnouncementRead.builder()
+                        .church(a.getChurch())
+                        .announcement(a)
+                        .memberId(memberId)
+                        .build())
+                .collect(Collectors.toList());
+        if (!toSave.isEmpty()) announcementReadRepository.saveAll(toSave);
+    }
+
+    /** Read-receipt lookup for a page of announcements (empty set when the page is empty). */
+    private Set<UUID> readIdsFor(MemberPrincipal principal, List<Announcement> anns) {
+        if (anns.isEmpty()) return Set.of();
+        List<UUID> ids = anns.stream().map(Announcement::getId).collect(Collectors.toList());
+        return new HashSet<>(announcementReadRepository.findReadAnnouncementIds(
+                principal.getChurchId(), principal.getMemberId(), ids));
     }
 
     @Transactional(readOnly = true)

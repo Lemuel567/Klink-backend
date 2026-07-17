@@ -29,7 +29,14 @@ public class AnnouncementResponse {
     private Boolean isTargeted;
     private int recipientCount;
 
+    /** Whether the calling member has read this announcement (false for management views). */
+    private boolean read;
+
     public static AnnouncementResponse from(Announcement a) {
+        return from(a, false);
+    }
+
+    public static AnnouncementResponse from(Announcement a, boolean read) {
         return AnnouncementResponse.builder()
                 .id(a.getId())
                 .title(a.getTitle())
@@ -43,6 +50,7 @@ public class AnnouncementResponse {
                 .targetMemberIds(a.getTargetMemberIds())
                 .isTargeted(Boolean.TRUE.equals(a.getIsTargeted()))
                 .recipientCount(a.getRecipientCount() != null ? a.getRecipientCount() : 0)
+                .read(read)
                 .build();
     }
 }
