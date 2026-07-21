@@ -111,29 +111,39 @@ public class FinanceService {
         int monthsCovered = division[0].intValue();
 
         YearMonth startMonth = YearMonth.parse(request.getPaymentMonth());
-        List<PaymentResponse> responses = new ArrayList<>();
 
+        // Every month the cash covers must currently be unpaid. Skipping paid
+        // months silently swallowed their share of the money — the same
+        // "money vanishes" failure the exact-multiple rule exists to prevent.
+        List<String> alreadyPaidMonths = new ArrayList<>();
         for (int i = 0; i < monthsCovered; i++) {
             String monthStr = startMonth.plusMonths(i).toString();
-
             boolean alreadyPaid = !paymentRepository.findByChurchIdAndMemberIdAndPaymentTypeAndPaymentMonth(
                     principal.getChurchId(), request.getMemberId(),
                     PaymentType.WELFARE, monthStr).isEmpty();
+            if (alreadyPaid) alreadyPaidMonths.add(monthStr);
+        }
+        if (!alreadyPaidMonths.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Welfare is already recorded for " + String.join(", ", alreadyPaidMonths)
+                            + ". Adjust the amount to cover only unpaid months.");
+        }
 
-            if (!alreadyPaid) {
-                Payment payment = Payment.builder()
-                        .church(church)
-                        .member(member)
-                        .paymentType(PaymentType.WELFARE)
-                        .amount(monthlyAmount)
-                        .paymentMonth(monthStr)
-                        .paymentDate(request.getPaymentDate())
-                        .momoReference(request.getMomoReference())
-                        .status(PaymentStatus.CONFIRMED)
-                        .recordedBy(principal.getMemberId())
-                        .build();
-                responses.add(PaymentResponse.from(paymentRepository.save(payment)));
-            }
+        List<PaymentResponse> responses = new ArrayList<>();
+        for (int i = 0; i < monthsCovered; i++) {
+            String monthStr = startMonth.plusMonths(i).toString();
+            Payment payment = Payment.builder()
+                    .church(church)
+                    .member(member)
+                    .paymentType(PaymentType.WELFARE)
+                    .amount(monthlyAmount)
+                    .paymentMonth(monthStr)
+                    .paymentDate(request.getPaymentDate())
+                    .momoReference(request.getMomoReference())
+                    .status(PaymentStatus.CONFIRMED)
+                    .recordedBy(principal.getMemberId())
+                    .build();
+            responses.add(PaymentResponse.from(paymentRepository.save(payment)));
         }
 
         return responses;

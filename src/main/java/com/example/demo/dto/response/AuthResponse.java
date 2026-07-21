@@ -17,6 +17,8 @@ public class AuthResponse {
     private String churchCode;
     private Role role;
     private String fullName;
+    private String email;
+    private String photoUrl;
     private boolean emailVerified;
     private boolean phoneVerified;
 }

@@ -44,18 +44,20 @@ public class NotificationService {
     public boolean notifyMember(Member member, String title, String body) {
         if (member.getStatus() != MemberStatus.ACTIVE) return false;
 
-        if (member.isHasSmartphone()) {
-            if (member.getFcmToken() != null && !member.getFcmToken().isBlank()) {
-                return sendPushNotification(member.getFcmToken(), title, body);
+        if (member.isHasSmartphone()
+                && member.getFcmToken() != null && !member.getFcmToken().isBlank()) {
+            if (sendPushNotification(member.getFcmToken(), title, body)) {
+                return true;
             }
-        } else {
-            // Prefer the verified E.164 number; fall back to the display phone
-            String phone = (member.getPhoneNumber() != null && !member.getPhoneNumber().isBlank())
-                    ? member.getPhoneNumber()
-                    : member.getPhone();
-            if (phone != null && !phone.isBlank()) {
-                return sendSms(phone, title + ": " + body);
-            }
+        }
+        // SMS: the primary channel for non-smartphone members AND the fallback for
+        // smartphone members with no (or dead) push token — previously those
+        // members received nothing at all. Prefer the verified E.164 number.
+        String phone = (member.getPhoneNumber() != null && !member.getPhoneNumber().isBlank())
+                ? member.getPhoneNumber()
+                : member.getPhone();
+        if (phone != null && !phone.isBlank()) {
+            return sendSms(phone, title + ": " + body);
         }
         return false;
     }

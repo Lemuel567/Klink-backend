@@ -58,9 +58,9 @@ public class AuthService {
     }
 
     public MessageResponse registerChurch(RegisterChurchRequest request, String ip) {
-        boolean emailExists = memberRepository.findByEmail(request.getPastorEmail()).isPresent();
+        java.util.Optional<Member> existing = memberRepository.findByEmail(request.getPastorEmail());
 
-        if (!emailExists) {
+        if (existing.isEmpty()) {
             String churchCode = generateChurchCode();
 
             Church church = Church.builder()
@@ -89,6 +89,10 @@ public class AuthService {
 
             publishVerificationEmail(pastor, false);
             auditLog.registrationSuccess(pastor.getId(), pastor.getEmail(), ip);
+        } else if (!Boolean.TRUE.equals(existing.get().getEmailVerified())) {
+            // A retried registration that never got verified must resend the code —
+            // silence here left users waiting for an email that would never come.
+            publishVerificationEmail(existing.get(), false);
         }
         return new MessageResponse("Account created. Please check your email to verify your address before logging in.");
     }
@@ -100,12 +104,19 @@ public class AuthService {
         boolean hasEmail = request.getEmail() != null && !request.getEmail().isBlank();
 
         if (hasEmail) {
-            boolean emailExists = memberRepository.findByEmail(request.getEmail()).isPresent();
-            if (!emailExists) {
+            java.util.Optional<Member> existingByEmail = memberRepository.findByEmail(request.getEmail());
+            if (existingByEmail.isEmpty()) {
+                // Keep the E.164 phone when one was provided alongside the email —
+                // dropping it silently made phone login impossible for these members.
+                // Skip it only if another account already owns that number.
+                String phoneNumber = request.getPhoneNumber();
+                boolean phoneUsable = phoneNumber != null && !phoneNumber.isBlank()
+                        && memberRepository.findByPhoneNumber(phoneNumber).isEmpty();
                 Member member = Member.builder()
                         .church(church)
                         .fullName(request.getFullName())
                         .email(request.getEmail())
+                        .phoneNumber(phoneUsable ? phoneNumber : null)
                         .password(passwordEncoder.encode(request.getPassword()))
                         .phone(request.getPhone())
                         .dateOfBirth(request.getDateOfBirth())
@@ -119,12 +130,14 @@ public class AuthService {
                 member = memberRepository.save(member);
                 publishVerificationEmail(member, false);
                 auditLog.registrationSuccess(member.getId(), member.getEmail(), ip);
+            } else if (!Boolean.TRUE.equals(existingByEmail.get().getEmailVerified())) {
+                publishVerificationEmail(existingByEmail.get(), false);
             }
             return new MessageResponse("Account created. Please check your email to verify your address before logging in.");
         } else {
             String phoneNumber = request.getPhoneNumber();
-            boolean phoneExists = memberRepository.findByPhoneNumber(phoneNumber).isPresent();
-            if (!phoneExists) {
+            java.util.Optional<Member> existingByPhone = memberRepository.findByPhoneNumber(phoneNumber);
+            if (existingByPhone.isEmpty()) {
                 Member member = Member.builder()
                         .church(church)
                         .fullName(request.getFullName())
@@ -142,6 +155,11 @@ public class AuthService {
                 member = memberRepository.save(member);
                 publishVerificationSms(member);
                 auditLog.phoneVerificationSent(member.getId(), member.getPhoneNumber(), ip);
+            } else if (!Boolean.TRUE.equals(existingByPhone.get().getPhoneVerified())) {
+                // Same trap as the email path: a retried, never-verified signup
+                // must get a fresh SMS code instead of nothing.
+                publishVerificationSms(existingByPhone.get());
+                auditLog.phoneVerificationSent(existingByPhone.get().getId(), phoneNumber, ip);
             }
             return new MessageResponse("Account created. A verification code has been sent to your phone.");
         }
@@ -251,6 +269,8 @@ public class AuthService {
                 .churchCode(churchCode)
                 .role(member.getRole())
                 .fullName(member.getFullName())
+                .email(member.getEmail())
+                .photoUrl(member.getPhotoUrl())
                 .emailVerified(Boolean.TRUE.equals(member.getEmailVerified()))
                 .phoneVerified(Boolean.TRUE.equals(member.getPhoneVerified()))
                 .build();
@@ -298,6 +318,8 @@ public class AuthService {
                 .churchCode(churchCode)
                 .role(member.getRole())
                 .fullName(member.getFullName())
+                .email(member.getEmail())
+                .photoUrl(member.getPhotoUrl())
                 .emailVerified(Boolean.TRUE.equals(member.getEmailVerified()))
                 .phoneVerified(Boolean.TRUE.equals(member.getPhoneVerified()))
                 .build();
@@ -359,6 +381,8 @@ public class AuthService {
                 .churchCode(churchCode)
                 .role(member.getRole())
                 .fullName(member.getFullName())
+                .email(member.getEmail())
+                .photoUrl(member.getPhotoUrl())
                 .emailVerified(true)
                 .phoneVerified(Boolean.TRUE.equals(member.getPhoneVerified()))
                 .build();
@@ -435,6 +459,8 @@ public class AuthService {
                 .churchCode(churchCode)
                 .role(member.getRole())
                 .fullName(member.getFullName())
+                .email(member.getEmail())
+                .photoUrl(member.getPhotoUrl())
                 .emailVerified(Boolean.TRUE.equals(member.getEmailVerified()))
                 .phoneVerified(true)
                 .build();

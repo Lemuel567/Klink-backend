@@ -29,6 +29,7 @@ public class ChurchDeletionService {
     private final GroupMemberRepository groupMemberRepository;
     private final GroupRepository groupRepository;
     private final AnnouncementRepository announcementRepository;
+    private final AnnouncementReadRepository announcementReadRepository;
     private final EventRepository eventRepository;
     private final SermonRepository sermonRepository;
     private final DevotionalRepository devotionalRepository;
@@ -92,6 +93,7 @@ public class ChurchDeletionService {
         devotionalRepository.deleteAllByChurchId(churchId);
         sermonRepository.deleteAllByChurchId(churchId);
         eventRepository.deleteAllByChurchId(churchId);
+        announcementReadRepository.deleteAllByChurchId(churchId);
         announcementRepository.deleteAllByChurchId(churchId);
         groupMessageRepository.deleteAllByChurchId(churchId);
         groupMemberRepository.deleteAllByChurchId(churchId);
@@ -156,6 +158,23 @@ public class ChurchDeletionService {
         announcementRepository.findByChurchIdOrderByCreatedAtDesc(churchId)
                 .stream().filter(a -> a.getFlyerUrl() != null)
                 .forEach(a -> urls.add(a.getFlyerUrl()));
+
+        // Previously missed: member profile photos, group photos and store item
+        // photos were orphaned in storage after a permanent church deletion.
+        memberRepository.findByChurchId(churchId)
+                .stream().filter(m -> m.getPhotoUrl() != null)
+                .forEach(m -> urls.add(m.getPhotoUrl()));
+
+        groupRepository.findByChurchId(churchId)
+                .stream().filter(g -> g.getPhotoUrl() != null)
+                .forEach(g -> urls.add(g.getPhotoUrl()));
+
+        storeItemRepository.findByChurchId(churchId).forEach(item -> {
+            if (item.getPhotoUrl() != null) urls.add(item.getPhotoUrl());
+            if (item.getPhotoUrls() != null) {
+                item.getPhotoUrls().stream().filter(u -> u != null).forEach(urls::add);
+            }
+        });
 
         return urls;
     }

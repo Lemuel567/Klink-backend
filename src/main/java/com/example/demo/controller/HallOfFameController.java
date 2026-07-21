@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -37,7 +38,7 @@ public class HallOfFameController {
         CreateHallOfFameRequest request = new CreateHallOfFameRequest();
         request.setTitle(title);
         request.setDescription(description);
-        request.setMemberId(memberId != null ? UUID.fromString(memberId) : null);
+        request.setMemberId(parseMemberId(memberId));
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(hallOfFameService.createEntry(request, photo, principal));
@@ -64,7 +65,7 @@ public class HallOfFameController {
         UpdateHallOfFameRequest request = new UpdateHallOfFameRequest();
         request.setTitle(title);
         request.setDescription(description);
-        request.setMemberId(memberId != null ? UUID.fromString(memberId) : null);
+        request.setMemberId(parseMemberId(memberId));
 
         return ResponseEntity.ok(hallOfFameService.updateEntry(id, request, photo, principal));
     }
@@ -76,5 +77,15 @@ public class HallOfFameController {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
         hallOfFameService.deleteEntry(id, principal);
         return ResponseEntity.noContent().build();
+    }
+
+    // A malformed UUID from the client must be a 400, not an unhandled 500.
+    private UUID parseMemberId(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return UUID.fromString(raw.trim());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "memberId must be a valid UUID");
+        }
     }
 }

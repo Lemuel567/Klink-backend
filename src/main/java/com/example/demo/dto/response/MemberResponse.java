@@ -20,6 +20,10 @@ public class MemberResponse {
     private String fullName;
     private String email;
     private String phone;
+    /** E.164 login number — full view only; never present in the directory view. */
+    private String phoneNumber;
+    private boolean emailVerified;
+    private boolean phoneVerified;
     private Role role;
     private Category category;
     private boolean hasSmartphone;
@@ -36,6 +40,9 @@ public class MemberResponse {
                 .fullName(member.getFullName())
                 .email(member.getEmail())
                 .phone(member.getPhone())
+                .phoneNumber(member.getPhoneNumber())
+                .emailVerified(Boolean.TRUE.equals(member.getEmailVerified()))
+                .phoneVerified(Boolean.TRUE.equals(member.getPhoneVerified()))
                 .role(member.getRole())
                 .category(member.getCategory())
                 .hasSmartphone(member.isHasSmartphone())
