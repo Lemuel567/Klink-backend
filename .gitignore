@@ -4,7 +4,6 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-
 ### Secrets — never commit ###
 .env
 firebase-service-account.json

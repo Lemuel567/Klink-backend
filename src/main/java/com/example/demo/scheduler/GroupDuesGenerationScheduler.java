@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 /**
  * Creates the month's PENDING dues records for every active group member.
- * This job was documented (cron {@code 0 0 0 1 * *}) but never
+ * This job was specified (cron {@code 0 0 0 1 * *}) but never
  * implemented — only the manual {@code POST /groups/{id}/dues/generate}
  * endpoint existed, so no PENDING records were ever auto-created.
  * Idempotent: members who already have any record for the month are skipped,
