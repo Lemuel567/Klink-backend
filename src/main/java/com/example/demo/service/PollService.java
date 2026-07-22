@@ -32,7 +32,10 @@ public class PollService {
     private final PollVoteRepository pollVoteRepository;
 
     public PollResponse createPoll(CreatePollRequest request, MemberPrincipal principal) {
-        RoleChecker.requirePastorElderOrManager(principal);
+        // Poll creation is deliberately narrower than other content: Pastor or
+        // Manager only. Polls are immutable once created (no edit endpoint
+        // exists by design) — deletion remains the only way to retract one.
+        RoleChecker.requirePastorOrManager(principal);
 
         if (request.getQuestion() == null || request.getQuestion().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Question is required");
@@ -110,8 +113,8 @@ public class PollService {
 
     @Transactional(readOnly = true)
     public PollResultsResponse getResults(UUID pollId, MemberPrincipal principal) {
-        RoleChecker.requirePastorElderOrManager(principal);
-
+        // Results are visible to EVERY church member (votes stay anonymous —
+        // only aggregate counts and percentages leave this method).
         Poll poll = pollRepository.findByChurchIdAndId(principal.getChurchId(), pollId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Poll not found"));
 
