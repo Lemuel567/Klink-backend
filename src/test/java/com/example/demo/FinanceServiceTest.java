@@ -1,5 +1,5 @@
 package com.example.demo;
-
+//To manage the finace sessions
 import com.example.demo.dto.request.RecordOfferingRequest;
 import com.example.demo.dto.request.RecordWelfareRequest;
 import com.example.demo.dto.response.PaymentResponse;
