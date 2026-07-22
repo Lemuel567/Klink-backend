@@ -1,4 +1,5 @@
 package com.example.demo;
+//church facility codes for the app
 
 import com.example.demo.dto.request.AddFacilityImageRequest;
 import com.example.demo.dto.request.CreateFacilityRequest;
