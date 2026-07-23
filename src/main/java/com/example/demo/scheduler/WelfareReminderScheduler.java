@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +38,7 @@ public class WelfareReminderScheduler {
         Page<com.example.demo.model.Church> chunk;
 
         do {
-            chunk = churchRepository.findAll(PageRequest.of(page++, CHURCH_PAGE_SIZE));
+            chunk = churchRepository.findAll(PageRequest.of(page++, CHURCH_PAGE_SIZE, Sort.by("id")));
             chunk.forEach(church -> {
                 // Churches in their 30-day deletion grace period must not keep nagging members
                 if (church.getDeletedAt() != null) return;

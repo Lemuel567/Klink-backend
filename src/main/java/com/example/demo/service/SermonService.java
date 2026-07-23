@@ -1,6 +1,8 @@
 package com.example.demo.service;
 
+import com.example.demo.dto.request.GenerateSermonNotesRequest;
 import com.example.demo.dto.request.UploadSermonRequest;
+import com.example.demo.dto.response.GeneratedNotesResponse;
 import com.example.demo.dto.response.SermonResponse;
 import com.example.demo.event.NotificationEvent;
 import com.example.demo.model.Role;
@@ -27,6 +29,7 @@ public class SermonService {
     private final SermonRepository sermonRepository;
     private final SupabaseStorageService storageService;
     private final ApplicationEventPublisher eventPublisher;
+    private final GeminiService geminiService;
 
     public SermonResponse uploadSermon(UploadSermonRequest request,
                                        MultipartFile audio,
@@ -88,6 +91,46 @@ public class SermonService {
         Sermon sermon = sermonRepository.findByChurchIdAndId(principal.getChurchId(), sermonId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sermon not found"));
         return SermonResponse.from(sermon);
+    }
+
+    /**
+     * Expands a manager's brief sermon notes into a detailed, warm summary via
+     * Gemini. Pure generate-and-return — nothing is persisted here. The manager
+     * reviews/edits the draft in the compose form and it's saved only when they
+     * submit the sermon (or update it), same as anything else they type.
+     */
+    @Transactional(readOnly = true)
+    public GeneratedNotesResponse generateNotes(GenerateSermonNotesRequest request, MemberPrincipal principal) {
+        Role role = principal.getRole();
+        if (role != Role.PASTOR && role != Role.ELDER && role != Role.MANAGER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only a Pastor, Elder, or Manager can generate sermon notes");
+        }
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are helping a church prepare detailed sermon notes for members who could not ")
+              .append("attend the service. Using ONLY the information given below, write a detailed, warm, ")
+              .append("well-organized explanation of what the sermon covered and its key takeaways — as if ")
+              .append("summarising for someone who wasn't there. Structure it in clear paragraphs (no markdown, ")
+              .append("no headings, no bullet points — plain prose paragraphs only). Stay strictly grounded in ")
+              .append("what is provided: do not invent specific scripture quotations, stories, or claims that ")
+              .append("are not implied by the notes below. If the notes are brief, expand thoughtfully on the ")
+              .append("theme and structure they suggest rather than fabricating new content. Aim for 3-4 ")
+              .append("paragraphs.\n\n");
+        prompt.append("Sermon title: ").append(request.getTitle()).append("\n");
+        if (request.getPreacher() != null && !request.getPreacher().isBlank()) {
+            prompt.append("Preacher: ").append(request.getPreacher()).append("\n");
+        }
+        if (request.getScripture() != null && !request.getScripture().isBlank()) {
+            prompt.append("Scripture reading: ").append(request.getScripture()).append("\n");
+        }
+        if (request.getMemoryVerse() != null && !request.getMemoryVerse().isBlank()) {
+            prompt.append("Memory verse: ").append(request.getMemoryVerse()).append("\n");
+        }
+        prompt.append("Preacher/manager's brief notes:\n").append(request.getNotes());
+
+        String generated = geminiService.generateText(prompt.toString());
+        return new GeneratedNotesResponse(generated);
     }
 
     public void deleteSermon(UUID sermonId, MemberPrincipal principal) {

@@ -55,7 +55,9 @@ public class PledgeService {
     public PledgePaymentResponse payPledge(UUID pledgeId, RecordPledgePaymentRequest request, MemberPrincipal principal) {
         RoleChecker.requireFinancialSecretary(principal);
 
-        Pledge pledge = pledgeRepository.findByChurchIdAndId(principal.getChurchId(), pledgeId)
+        // Row-locked: concurrent payments on the same pledge must serialise or
+        // the read-modify-write on amountPaid below loses one of the increments.
+        Pledge pledge = pledgeRepository.findByChurchIdAndIdForUpdate(principal.getChurchId(), pledgeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Pledge not found"));
 
         if (pledge.getStatus() == PledgeStatus.PAID) {

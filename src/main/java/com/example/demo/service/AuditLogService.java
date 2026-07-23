@@ -10,15 +10,15 @@ import java.util.UUID;
 public class AuditLogService {
 
     public void loginSuccess(UUID memberId, String email, String ip) {
-        log.info("[AUTH] LOGIN_SUCCESS memberId={} email={} ip={}", memberId, email, ip);
+        log.info("[AUTH] LOGIN_SUCCESS memberId={} email={} ip={}", memberId, maskEmail(email), ip);
     }
 
     public void loginFailure(String email, String ip) {
-        log.warn("[AUTH] LOGIN_FAILURE email={} ip={}", email, ip);
+        log.warn("[AUTH] LOGIN_FAILURE email={} ip={}", maskEmail(email), ip);
     }
 
     public void accountLocked(String email, String ip) {
-        log.warn("[AUTH] ACCOUNT_LOCKED email={} ip={}", email, ip);
+        log.warn("[AUTH] ACCOUNT_LOCKED email={} ip={}", maskEmail(email), ip);
     }
 
     public void logout(UUID memberId, String ip) {
@@ -34,11 +34,11 @@ public class AuditLogService {
     }
 
     public void passwordReset(String email, String ip) {
-        log.info("[AUTH] PASSWORD_RESET email={} ip={}", email, ip);
+        log.info("[AUTH] PASSWORD_RESET email={} ip={}", maskEmail(email), ip);
     }
 
     public void registrationSuccess(UUID memberId, String email, String ip) {
-        log.info("[AUTH] REGISTER memberId={} email={} ip={}", memberId, email, ip);
+        log.info("[AUTH] REGISTER memberId={} email={} ip={}", memberId, maskEmail(email), ip);
     }
 
     public void tokenReuseDetected(UUID memberId, String ip) {
@@ -140,5 +140,14 @@ public class AuditLogService {
     private String last4(String phoneNumber) {
         if (phoneNumber == null || phoneNumber.length() < 4) return "????";
         return phoneNumber.substring(phoneNumber.length() - 4);
+    }
+
+    // Emails are PII — logs keep only enough to correlate ("j***@gmail.com"),
+    // mirroring the last-4 masking already applied to phone numbers above.
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) return "?";
+        int at = email.indexOf('@');
+        if (at <= 0) return "***";
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }

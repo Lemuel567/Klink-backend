@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import com.example.demo.dto.request.RecordOfferingRequest;
 import com.example.demo.dto.request.RecordTitheRequest;
 import com.example.demo.dto.request.RecordWelfareRequest;
+import com.example.demo.dto.response.CollectionsSummaryResponse;
 import com.example.demo.dto.response.MemberResponse;
 import com.example.demo.dto.response.PaymentResponse;
 import com.example.demo.security.MemberPrincipal;
@@ -11,12 +12,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -69,6 +72,17 @@ public class FinanceController {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
         financeService.sendManualWelfareReminder(month, principal);
         return ResponseEntity.noContent().build();
+    }
+
+    // FinSec + Pastor + Elder: reconcile collections (manual + app) for a day or
+    // a period. No params → current month; from only → that single day.
+    @GetMapping("/summary")
+    public ResponseEntity<CollectionsSummaryResponse> getCollectionsSummary(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(financeService.getCollectionsSummary(from, to, principal));
     }
 
     @GetMapping("/me")

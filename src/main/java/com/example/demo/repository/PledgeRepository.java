@@ -29,6 +29,13 @@ public interface PledgeRepository extends JpaRepository<Pledge, UUID> {
     // Financial Secretary: look up a specific pledge to mark it paid
     Optional<Pledge> findByChurchIdAndId(UUID churchId, UUID id);
 
+    // Row-locked load for payment recording — two concurrent payments must
+    // serialise, or one amountPaid increment is silently lost (same pattern
+    // as StoreItemRepository.findByChurchIdAndIdForUpdate).
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Pledge p WHERE p.church.id = :churchId AND p.id = :id")
+    Optional<Pledge> findByChurchIdAndIdForUpdate(@Param("churchId") UUID churchId, @Param("id") UUID id);
+
     // Member: view all their own pledges
     List<Pledge> findByChurchIdAndMemberId(UUID churchId, UUID memberId);
 

@@ -10,11 +10,37 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+
+    // Per-type collections over a date range, split by the `online` flag (set
+    // only by the Paystack materialiser — a FinSec-recorded payment stays
+    // "manual" even when it carries a MoMo receipt number). Church money only —
+    // group dues (group != null) are excluded so they never mix into a church total.
+    @Query("""
+        SELECT p.paymentType AS type,
+               COALESCE(SUM(CASE WHEN p.online = false THEN p.amount ELSE 0 END), 0) AS manualTotal,
+               COALESCE(SUM(CASE WHEN p.online = true THEN p.amount ELSE 0 END), 0) AS onlineTotal
+        FROM Payment p
+        WHERE p.church.id = :churchId
+          AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+          AND p.group IS NULL
+          AND p.paymentDate BETWEEN :from AND :to
+        GROUP BY p.paymentType
+        """)
+    List<CollectionTotal> summariseCollections(@Param("churchId") UUID churchId,
+                                               @Param("from") LocalDate from,
+                                               @Param("to") LocalDate to);
+
+    // Only a MANUAL lump-sum offering (member is null) blocks a second manual
+    // offering for the same service date — members' own online offerings that
+    // day must NOT block the secretary recording the counted cash.
+    boolean existsByChurchIdAndPaymentTypeAndPaymentDateAndMemberIsNull(
+            UUID churchId, PaymentType paymentType, LocalDate paymentDate);
 
     List<Payment> findByChurchId(UUID churchId);
 

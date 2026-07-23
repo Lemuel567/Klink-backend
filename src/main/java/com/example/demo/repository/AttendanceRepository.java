@@ -26,6 +26,11 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
 
     boolean existsByMemberIdAndServiceDateAndServiceName(UUID memberId, LocalDate serviceDate, String serviceName);
 
+    // Analytics: how many were present in a month.
+    long countByChurchIdAndStatusAndServiceDateBetween(
+            UUID churchId, com.example.demo.model.AttendanceStatus status,
+            LocalDate from, LocalDate to);
+
     @Modifying
     @Query("DELETE FROM Attendance a WHERE a.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);

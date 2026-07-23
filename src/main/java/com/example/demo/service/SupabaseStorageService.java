@@ -45,6 +45,12 @@ public class SupabaseStorageService {
 
     public String uploadImage(MultipartFile file, String folder) {
         validateImageFile(file);
+        // Central cap: every image path (profile, gallery, store, projects,
+        // flyers) flows through here — previously only MediaUploadService
+        // enforced the 10 MB image limit and the rest rode the 30 MB global.
+        if (file.getSize() > 10L * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image exceeds the 10 MB size limit");
+        }
         String path = folder + "/" + UUID.randomUUID() + "." + getExtension(file.getOriginalFilename());
         try {
             restClient.post()
@@ -62,6 +68,9 @@ public class SupabaseStorageService {
 
     public String uploadAudio(MultipartFile file, String folder) {
         validateAudioFile(file);
+        if (file.getSize() > 30L * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Audio exceeds the 30 MB size limit");
+        }
         String path = folder + "/" + UUID.randomUUID() + "." + getExtension(file.getOriginalFilename());
         try {
             restClient.post()

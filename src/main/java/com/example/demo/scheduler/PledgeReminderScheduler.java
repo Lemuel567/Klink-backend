@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,7 @@ public class PledgeReminderScheduler {
         Page<Pledge> chunk;
 
         do {
-            chunk = pledgeRepository.findByStatusInPaged(unpaidStatuses, PageRequest.of(page++, PAGE_SIZE));
+            chunk = pledgeRepository.findByStatusInPaged(unpaidStatuses, PageRequest.of(page++, PAGE_SIZE, Sort.by("id")));
             for (Pledge pledge : chunk.getContent()) {
                 String label = pledge.getDescription() != null ? pledge.getDescription() : "General Pledge";
                 BigDecimal paid = pledge.getAmountPaid() != null ? pledge.getAmountPaid() : BigDecimal.ZERO;

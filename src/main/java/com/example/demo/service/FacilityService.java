@@ -30,6 +30,7 @@ public class FacilityService {
 
     private final FacilityRepository facilityRepository;
     private final FacilityImageRepository facilityImageRepository;
+    private final SupabaseStorageService storageService;
 
     public FacilityResponse createFacility(CreateFacilityRequest request, MemberPrincipal principal) {
         RoleChecker.requirePastorOrManager(principal);
@@ -164,6 +165,9 @@ public class FacilityService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
 
+        // Free the actual file in storage — removing only the DB row orphaned
+        // it forever (same class of leak fixed in Group/Member/Store photos).
+        storageService.deleteFile(image.getImageUrl());
         facilityImageRepository.delete(image);
     }
 

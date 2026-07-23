@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -34,7 +35,7 @@ public class DuesReminderScheduler {
         String currentMonth = YearMonth.now().toString();
 
         // Process active groups in pages of 50 to avoid loading all groups globally into memory.
-        Pageable pageable = PageRequest.of(0, 50);
+        Pageable pageable = PageRequest.of(0, 50, Sort.by("id"));
         Page<Group> page;
         do {
             page = groupRepository.findByStatus(GroupStatus.ACTIVE, pageable);

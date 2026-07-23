@@ -210,6 +210,7 @@ public class OnlinePaymentService {
                 .paymentDate(LocalDate.now())
                 .status(PaymentStatus.CONFIRMED)
                 .momoReference(tx.getPaystackReference())
+                .online(true) // the ONLY place this flag is ever set
                 .recordedBy(tx.getMemberId())
                 .build();
         paymentRepository.save(payment);

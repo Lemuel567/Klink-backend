@@ -3,10 +3,12 @@ package com.example.demo.service;
 import com.example.demo.dto.request.RecordOfferingRequest;
 import com.example.demo.dto.request.RecordTitheRequest;
 import com.example.demo.dto.request.RecordWelfareRequest;
+import com.example.demo.dto.response.CollectionsSummaryResponse;
 import com.example.demo.dto.response.MemberResponse;
 import com.example.demo.dto.response.PaymentResponse;
 import com.example.demo.model.*;
 import com.example.demo.repository.ChurchRepository;
+import com.example.demo.repository.CollectionTotal;
 import com.example.demo.repository.MemberRepository;
 import com.example.demo.repository.PaymentRepository;
 import com.example.demo.security.MemberPrincipal;
@@ -25,7 +27,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,11 +44,14 @@ public class FinanceService {
     public PaymentResponse recordOffering(RecordOfferingRequest request, MemberPrincipal principal) {
         RoleChecker.requireFinancialSecretary(principal);
 
-        boolean alreadyRecorded = paymentRepository.existsByChurchIdAndPaymentTypeAndPaymentDate(
+        // Only a prior MANUAL lump sum (member null) is a duplicate. Members'
+        // own online offerings that day are member-attributed and must not block
+        // the secretary recording the counted cash.
+        boolean alreadyRecorded = paymentRepository.existsByChurchIdAndPaymentTypeAndPaymentDateAndMemberIsNull(
                 principal.getChurchId(), PaymentType.OFFERING, request.getServiceDate());
         if (alreadyRecorded) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "An offering has already been recorded for this date. If you need to correct it, contact your administrator.");
+                    "A cash offering has already been recorded for this date. If you need to correct it, contact your administrator.");
         }
 
         String paymentMonth = request.getServiceDate().format(DateTimeFormatter.ofPattern("yyyy-MM"));
@@ -174,6 +181,67 @@ public class FinanceService {
                 defaulters.stream().map(Member::getId).toList(),
                 "Welfare Reminder",
                 "You have not paid your welfare for " + paymentMonth + ". Please pay as soon as possible."));
+    }
+
+    /**
+     * Reconcile church collections over a period: for each type, the cash
+     * recorded by hand plus what came in automatically through the app, and the
+     * combined totals. Null dates default to the current month; a single date
+     * (from == to) reconciles one service day.
+     */
+    @Transactional(readOnly = true)
+    public CollectionsSummaryResponse getCollectionsSummary(LocalDate from, LocalDate to, MemberPrincipal principal) {
+        RoleChecker.requireFinancialSecretaryOrPrivileged(principal);
+
+        if (from == null && to == null) {
+            YearMonth ym = YearMonth.now();
+            from = ym.atDay(1);
+            to = ym.atEndOfMonth();
+        } else if (from == null) {
+            from = to;
+        } else if (to == null) {
+            to = from;
+        }
+        if (to.isBefore(from)) {
+            LocalDate swap = from;
+            from = to;
+            to = swap;
+        }
+
+        Map<PaymentType, CollectionTotal> byType = new EnumMap<>(PaymentType.class);
+        for (CollectionTotal ct : paymentRepository.summariseCollections(principal.getChurchId(), from, to)) {
+            byType.put(ct.getType(), ct);
+        }
+
+        // Church-money types in a familiar order (group DUES excluded by the query)
+        List<PaymentType> order = List.of(
+                PaymentType.OFFERING, PaymentType.TITHE, PaymentType.WELFARE, PaymentType.SPECIAL_CONTRIBUTION);
+
+        List<CollectionsSummaryResponse.Line> lines = new ArrayList<>();
+        BigDecimal manualTotal = BigDecimal.ZERO;
+        BigDecimal onlineTotal = BigDecimal.ZERO;
+        for (PaymentType type : order) {
+            CollectionTotal ct = byType.get(type);
+            BigDecimal manual = ct != null && ct.getManualTotal() != null ? ct.getManualTotal() : BigDecimal.ZERO;
+            BigDecimal online = ct != null && ct.getOnlineTotal() != null ? ct.getOnlineTotal() : BigDecimal.ZERO;
+            lines.add(CollectionsSummaryResponse.Line.builder()
+                    .type(type.name())
+                    .manual(manual)
+                    .online(online)
+                    .total(manual.add(online))
+                    .build());
+            manualTotal = manualTotal.add(manual);
+            onlineTotal = onlineTotal.add(online);
+        }
+
+        return CollectionsSummaryResponse.builder()
+                .from(from)
+                .to(to)
+                .lines(lines)
+                .manualTotal(manualTotal)
+                .onlineTotal(onlineTotal)
+                .grandTotal(manualTotal.add(onlineTotal))
+                .build();
     }
 
     @Transactional(readOnly = true)

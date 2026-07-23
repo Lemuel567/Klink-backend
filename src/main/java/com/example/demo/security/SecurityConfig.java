@@ -56,8 +56,10 @@ public class SecurityConfig {
                                 // Paystack server-to-server webhook (HMAC-verified) + browser callback page
                                 "/api/v1/payments/webhook",
                                 "/api/v1/payments/paystack/callback",
-                                // Liveness probe — no data exposed
+                                // Liveness probes — no data exposed
                                 "/api/v1/health",
+                                "/actuator/health",
+                                "/actuator/health/**",
                                 "/error"
                         ).permitAll()
                         .anyRequest().authenticated()

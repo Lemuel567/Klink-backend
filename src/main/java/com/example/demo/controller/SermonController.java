@@ -1,9 +1,12 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.request.GenerateSermonNotesRequest;
 import com.example.demo.dto.request.UploadSermonRequest;
+import com.example.demo.dto.response.GeneratedNotesResponse;
 import com.example.demo.dto.response.SermonResponse;
 import com.example.demo.security.MemberPrincipal;
 import com.example.demo.service.SermonService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,6 +56,17 @@ public class SermonController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(sermonService.uploadSermon(request, audio, principal));
+    }
+
+    // AI-assisted drafting: expands the manager's brief notes into a detailed
+    // summary. Nothing is persisted — the manager reviews/edits the draft
+    // before it's saved via the normal create/update flow.
+    @PostMapping("/generate-notes")
+    public ResponseEntity<GeneratedNotesResponse> generateNotes(
+            @Valid @RequestBody GenerateSermonNotesRequest request,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(sermonService.generateNotes(request, principal));
     }
 
     @GetMapping

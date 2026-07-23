@@ -48,6 +48,13 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
 
     Optional<Member> findByChurchIdAndId(UUID churchId, UUID id);
 
+    // Analytics counts — half-open [from, to) window so month boundaries never
+    // drop or double-count a member
+    long countByChurchId(UUID churchId);
+    long countByChurchIdAndStatus(UUID churchId, MemberStatus status);
+    long countByChurchIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+            UUID churchId, java.time.LocalDateTime fromInclusive, java.time.LocalDateTime toExclusive);
+
     Optional<Member> findByEmail(String email);
 
     Optional<Member> findByPhoneNumber(String phoneNumber);

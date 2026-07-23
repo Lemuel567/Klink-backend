@@ -38,6 +38,7 @@ public class ProjectService {
     private final ProjectContributionRepository contributionRepository;
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final SupabaseStorageService storageService;
 
     // ─── Projects CRUD ───────────────────────────────────────────────────────
 
@@ -256,6 +257,9 @@ public class ProjectService {
         loadProject(projectId, principal.getChurchId());
         ProjectImage image = imageRepository.findByIdAndProjectId(imageId, projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Image not found"));
+        // Free the actual file in storage — removing only the DB row orphaned
+        // it forever (same class of leak fixed in Group/Member/Store photos).
+        storageService.deleteFile(image.getImageUrl());
         imageRepository.delete(image);
     }
 
@@ -310,6 +314,9 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public Page<ContributionResponse> listContributions(UUID projectId, MemberPrincipal principal, Pageable pageable) {
         ChurchProject project = loadProject(projectId, principal.getChurchId());
+        // Same gate as getProject/getContributionSummary — without it a member
+        // holding a private project's UUID could read its contribution amounts.
+        enforceVisibility(project, principal);
         boolean isPrivileged = principal.getRole() == Role.FINANCIAL_SECRETARY
                 || RoleChecker.isPastorOrElder(principal)
                 || principal.getRole() == Role.MANAGER;

@@ -53,16 +53,18 @@ public class PollService {
                 .createdBy(principal.getMemberId())
                 .build();
 
-        return PollResponse.from(pollRepository.save(poll), false);
+        return PollResponse.from(pollRepository.save(poll), (String) null);
     }
 
     @Transactional(readOnly = true)
     public Page<PollResponse> getAllPolls(MemberPrincipal principal, Pageable pageable) {
         return pollRepository.findByChurchIdOrderByCreatedAtDesc(principal.getChurchId(), pageable)
                 .map(poll -> {
-                    boolean voted = pollVoteRepository.existsByPollIdAndMemberId(
-                            poll.getId(), principal.getMemberId());
-                    return PollResponse.from(poll, voted);
+                    String votedOption = pollVoteRepository
+                            .findByPollIdAndMemberId(poll.getId(), principal.getMemberId())
+                            .map(PollVote::getSelectedOption)
+                            .orElse(null);
+                    return PollResponse.from(poll, votedOption);
                 });
     }
 
@@ -74,11 +76,6 @@ public class PollService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This poll has already closed");
         }
 
-        if (pollVoteRepository.existsByPollIdAndMemberId(pollId, principal.getMemberId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "You have already voted on this poll");
-        }
-
         if (request.getSelectedOption() == null || request.getSelectedOption().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected option is required");
         }
@@ -88,17 +85,21 @@ public class PollService {
                     "Selected option is not valid for this poll");
         }
 
-        PollVote vote = PollVote.builder()
-                .church(principal.getMember().getChurch())
-                .poll(poll)
-                .member(principal.getMember())
-                .selectedOption(request.getSelectedOption())
-                .votedAt(LocalDateTime.now())
-                .build();
-
+        // A member may CHANGE their vote while the poll is open: reuse the
+        // existing row (there is a unique constraint on poll+member) instead of
+        // rejecting or inserting a duplicate.
+        PollVote vote = pollVoteRepository
+                .findByPollIdAndMemberId(pollId, principal.getMemberId())
+                .orElseGet(() -> PollVote.builder()
+                        .church(principal.getMember().getChurch())
+                        .poll(poll)
+                        .member(principal.getMember())
+                        .build());
+        vote.setSelectedOption(request.getSelectedOption());
+        vote.setVotedAt(LocalDateTime.now());
         pollVoteRepository.save(vote);
 
-        return PollResponse.from(poll, true);
+        return PollResponse.from(poll, request.getSelectedOption());
     }
 
     public void deletePoll(UUID pollId, MemberPrincipal principal) {
@@ -118,13 +119,14 @@ public class PollService {
         Poll poll = pollRepository.findByChurchIdAndId(principal.getChurchId(), pollId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Poll not found"));
 
-        List<PollVote> votes = pollVoteRepository.findByChurchIdAndPollId(
-                principal.getChurchId(), pollId);
+        // Aggregated in SQL — never loads individual vote rows into memory
+        Map<String, Long> voteCounts = pollVoteRepository
+                .countVotesByOption(principal.getChurchId(), pollId).stream()
+                .collect(Collectors.toMap(
+                        PollVoteRepository.OptionCount::getOption,
+                        PollVoteRepository.OptionCount::getVotes));
 
-        int totalVotes = votes.size();
-
-        Map<String, Long> voteCounts = votes.stream()
-                .collect(Collectors.groupingBy(PollVote::getSelectedOption, Collectors.counting()));
+        int totalVotes = (int) voteCounts.values().stream().mapToLong(Long::longValue).sum();
 
         List<PollResultsResponse.OptionResult> results = poll.getOptions().stream()
                 .map(option -> {

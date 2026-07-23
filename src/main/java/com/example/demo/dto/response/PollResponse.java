@@ -18,10 +18,16 @@ public class PollResponse {
     private LocalDateTime closesAt;
     private boolean open;
     private boolean voted;
+    /** The option THIS caller currently holds, or null if they haven't voted. */
+    private String votedOption;
     private UUID createdBy;
     private LocalDateTime createdAt;
 
-    public static PollResponse from(Poll poll, boolean voted) {
+    /**
+     * @param votedOption the caller's current choice, or null if they haven't
+     *                    voted. `voted` is derived from it.
+     */
+    public static PollResponse from(Poll poll, String votedOption) {
         boolean open = poll.getClosesAt() == null || poll.getClosesAt().isAfter(LocalDateTime.now());
         return PollResponse.builder()
                 .id(poll.getId())
@@ -29,7 +35,8 @@ public class PollResponse {
                 .options(poll.getOptions())
                 .closesAt(poll.getClosesAt())
                 .open(open)
-                .voted(voted)
+                .voted(votedOption != null)
+                .votedOption(votedOption)
                 .createdBy(poll.getCreatedBy())
                 .createdAt(poll.getCreatedAt())
                 .build();

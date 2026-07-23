@@ -1,7 +1,24 @@
 server:
   server-header: ""
+  # Finish in-flight requests (e.g. a Paystack verify writing the ledger)
+  # before the process exits on redeploy/restart.
+  shutdown: graceful
+  # Mobile networks: gzip JSON list responses (directory, feeds)
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 1024
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  task:
+    scheduling:
+      pool:
+        # Default is ONE thread for all 10 @Scheduled jobs — Birthday and
+        # EventReminder share the same 8:00 cron, and one hung FCM/SMS call
+        # would stall every scheduler in the app.
+        size: 5
   # No in-memory user: auth is JWT-only (JwtFilter). Without this exclusion Spring Boot
   # generates a default user and prints its password to the logs at startup.
   autoconfigure:
@@ -21,6 +38,9 @@ spring:
       keepalive-time: 60000
       max-lifetime: 1800000
       idle-timeout: 600000
+      # Log a warning when a connection is held >60s — surfaces transactions
+      # that pin the pool (e.g. network I/O inside @Transactional)
+      leak-detection-threshold: 60000
   jpa:
     open-in-view: false
     hibernate:
@@ -30,9 +50,6 @@ spring:
       # HIBERNATE_DDL_AUTO=validate (or none) to make Flyway fully authoritative.
       ddl-auto: ${HIBERNATE_DDL_AUTO:update}
     show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
   # Flyway runs before Hibernate. On the EXISTING (non-empty) database it records the
   # V1 baseline WITHOUT executing it (baseline-on-migrate) and then applies V2+; the
   # live schema is never rebuilt. On a fresh database V1 creates everything.
@@ -59,6 +76,18 @@ spring:
           auth: true
           starttls:
             enable: true
+
+# Actuator: liveness/readiness split + a real DB-inclusive health probe.
+# Only health and info are exposed; everything else stays shut.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 app:
   jwt:
@@ -120,8 +149,15 @@ paystack:
   # webhook secret is not issued; leave blank to verify with secret-key.
   webhook-secret: ${PAYSTACK_WEBHOOK_SECRET:}
 
+# Google Gemini (free tier) — expands a manager's brief sermon notes into a
+# detailed summary. Get a key at aistudio.google.com ("Get API key") and set
+# GEMINI_API_KEY in .env; the feature 503s with a clear message until then.
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-flash-latest}
+
 supabase:
-  url: ${SUPABASE_URL:https://kqadpgrcroelumtagsln.supabase.co}
+  url: ${SUPABASE_URL}
   service-key: ${SUPABASE_SERVICE_KEY}
   storage:
     bucket: klink-storage

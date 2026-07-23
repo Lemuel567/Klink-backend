@@ -132,7 +132,7 @@ public class EmailService {
     /** Sends a multipart email (HTML with a plain-text fallback). Degrades silently if mail is unconfigured. */
     private void send(String to, String subject, String html, String text) {
         if (fromEmail == null || fromEmail.isBlank()) {
-            log.warn("Mail not configured. Skipping email to {}", to);
+            log.warn("Mail not configured. Skipping email to {}", mask(to));
             return;
         }
         try {
@@ -143,10 +143,18 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(text, html); // (plain, html) → multipart/alternative
             mailSender.send(message);
-            log.info("Email sent to {}", to);
+            log.info("Email sent to {}", mask(to));
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            log.error("Failed to send email to {}: {}", mask(to), e.getMessage());
         }
+    }
+
+    // Recipient addresses are PII — keep logs correlatable, not harvestable.
+    private String mask(String email) {
+        if (email == null || email.isBlank()) return "?";
+        int at = email.indexOf('@');
+        if (at <= 0) return "***";
+        return email.charAt(0) + "***" + email.substring(at);
     }
 
     private String firstName(String name) {

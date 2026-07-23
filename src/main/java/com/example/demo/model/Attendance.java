@@ -19,7 +19,9 @@ import java.util.UUID;
     indexes = {
         @Index(name = "idx_attendance_church_id", columnList = "church_id"),
         @Index(name = "idx_attendance_member_id", columnList = "member_id"),
-        @Index(name = "idx_attendance_service_date", columnList = "service_date")
+        @Index(name = "idx_attendance_service_date", columnList = "service_date"),
+        // Analytics counts PRESENT members per church per month
+        @Index(name = "idx_attendance_church_status_date", columnList = "church_id, status, service_date")
     }
 )
 @Getter

@@ -508,8 +508,10 @@ public class AuthService {
                     "Too many reset attempts. Try again in " + retryMins + " minutes.");
         }
 
+        // Both failure branches return the IDENTICAL message — differing texts
+        // let an attacker distinguish registered from unregistered emails.
         Member member = memberRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid code or email"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired code"));
 
         VerificationToken vt = verificationTokenRepository
                 .findTopByEmailAndTypeAndUsedFalseOrderByCreatedAtDesc(request.getEmail(), VerificationTokenType.PASSWORD_RESET)

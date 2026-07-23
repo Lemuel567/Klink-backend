@@ -17,7 +17,9 @@ import java.util.UUID;
         @Index(name = "idx_payments_church_id", columnList = "church_id"),
         @Index(name = "idx_payments_member_id", columnList = "member_id"),
         @Index(name = "idx_payments_church_type_month", columnList = "church_id, payment_type, payment_month"),
-        @Index(name = "idx_payments_group_id", columnList = "group_id")
+        @Index(name = "idx_payments_group_id", columnList = "group_id"),
+        // Collections summaries + analytics filter by church + date range
+        @Index(name = "idx_payments_church_date", columnList = "church_id, payment_date")
     }
 )
 @Getter
@@ -65,6 +67,14 @@ public class Payment {
 
     @Column(name = "momo_reference")
     private String momoReference;
+
+    // True ONLY for rows materialised from a verified Paystack transaction.
+    // This is the manual-vs-online discriminator for collections summaries —
+    // momoReference is NOT reliable for that, because a Financial Secretary
+    // may attach a MoMo receipt number to a hand-recorded payment.
+    @Builder.Default
+    @Column(name = "online", nullable = false)
+    private boolean online = false;
 
     @Column(name = "recorded_by")
     private UUID recordedBy;

@@ -148,7 +148,9 @@ class FinanceServiceTest {
         ReflectionTestUtils.setField(req, "serviceDate", LocalDate.now());
         ReflectionTestUtils.setField(req, "amount", new BigDecimal("500.00"));
 
-        when(paymentRepository.existsByChurchIdAndPaymentTypeAndPaymentDate(
+        // Guard now only blocks a duplicate MANUAL lump-sum offering (member null),
+        // so members' own online offerings that day don't block the counted cash.
+        when(paymentRepository.existsByChurchIdAndPaymentTypeAndPaymentDateAndMemberIsNull(
                 eq(p.getChurchId()), eq(PaymentType.OFFERING), any())).thenReturn(true);
 
         assertThatThrownBy(() -> financeService.recordOffering(req, p))

@@ -50,6 +50,7 @@ public class ChurchDeletionService {
     private final VerificationTokenRepository verificationTokenRepository;
     private final PrayerRequestRepository prayerRequestRepository;
     private final PaystackTransactionRepository paystackTransactionRepository;
+    private final GivingScheduleRepository givingScheduleRepository;
     private final SupabaseStorageService storageService;
 
     /**
@@ -95,12 +96,17 @@ public class ChurchDeletionService {
         eventRepository.deleteAllByChurchId(churchId);
         announcementReadRepository.deleteAllByChurchId(churchId);
         announcementRepository.deleteAllByChurchId(churchId);
+        pledgePaymentRepository.deleteAllByChurchId(churchId);
+        pledgeRepository.deleteAllByChurchId(churchId);
+        // payments MUST go before groups: group dues are payments rows with a
+        // group_id FK — deleting groups first violates fk_payments_group, the
+        // whole purge transaction rolls back, and the church is never deleted
+        // (the scheduler would retry and fail forever).
+        paymentRepository.deleteAllByChurchId(churchId);
         groupMessageRepository.deleteAllByChurchId(churchId);
         groupMemberRepository.deleteAllByChurchId(churchId);
         groupRepository.deleteAllByChurchId(churchId);
-        pledgePaymentRepository.deleteAllByChurchId(churchId);
-        pledgeRepository.deleteAllByChurchId(churchId);
-        paymentRepository.deleteAllByChurchId(churchId);
+        givingScheduleRepository.deleteAllByChurchId(churchId);
         attendanceRepository.deleteAllByChurchId(churchId);
         attendanceSessionRepository.deleteAllByChurchId(churchId);
 

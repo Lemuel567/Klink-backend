@@ -22,5 +22,7 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Run tests
-        run: ./mvnw -B test
+      - name: Run tests and build the jar
+        # verify = test + package: catches packaging/resource regressions
+        # (broken migrations dir, resource filtering) that plain `test` misses
+        run: ./mvnw -B verify -DskipITs

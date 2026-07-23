@@ -95,6 +95,13 @@ public class GroupService {
         Group group = getGroupForChurch(groupId, principal.getChurchId());
         requireGroupAdminOrLeadership(group, principal);
 
+        // Delete the previous photo before uploading the replacement — without
+        // this, every re-upload orphans a file in Supabase Storage forever
+        // (same cleanup pattern as MemberService/StoreService/ChurchService).
+        if (group.getPhotoUrl() != null) {
+            supabaseStorageService.deleteFile(group.getPhotoUrl());
+        }
+
         String url = supabaseStorageService.uploadImage(file, "groups");
         group.setPhotoUrl(url);
         return GroupResponse.from(group, groupMemberRepository.countByGroupId(groupId));
