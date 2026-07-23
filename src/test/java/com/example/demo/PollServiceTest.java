@@ -129,13 +129,10 @@ class PollServiceTest {
         verify(pollVoteRepository, never()).save(any());
     }
 
-    // ── results (SQL aggregation) ─────────────────────────────────────────────
+    // ── results (in-memory count from the church-scoped finder) ───────────────
 
-    private PollVoteRepository.OptionCount count(String option, long votes) {
-        return new PollVoteRepository.OptionCount() {
-            @Override public String getOption() { return option; }
-            @Override public long getVotes() { return votes; }
-        };
+    private PollVote voteRow(String option) {
+        return PollVote.builder().id(UUID.randomUUID()).selectedOption(option).build();
     }
 
     @Test
@@ -148,8 +145,8 @@ class PollServiceTest {
                 .options(List.of("Morning", "Evening", "Online"))
                 .build();
         when(pollRepository.findByChurchIdAndId(p.getChurchId(), poll.getId())).thenReturn(Optional.of(poll));
-        when(pollVoteRepository.countVotesByOption(p.getChurchId(), poll.getId()))
-                .thenReturn(List.of(count("Morning", 3), count("Evening", 1)));
+        when(pollVoteRepository.findByChurchIdAndPollId(p.getChurchId(), poll.getId()))
+                .thenReturn(List.of(voteRow("Morning"), voteRow("Morning"), voteRow("Morning"), voteRow("Evening")));
 
         PollResultsResponse results = pollService.getResults(poll.getId(), p);
 
@@ -160,8 +157,6 @@ class PollServiceTest {
         assertThat(results.getResults().get(1).getPercentage()).isEqualTo(25.0);
         assertThat(results.getResults().get(2).getVotes()).isZero();
         assertThat(results.getResults().get(2).getPercentage()).isZero();
-        // Aggregation happens in SQL — the per-row finder must never run here
-        verify(pollVoteRepository, never()).findByChurchIdAndPollId(any(), any());
     }
 
     @Test
@@ -169,7 +164,7 @@ class PollServiceTest {
         MemberPrincipal p = principal(Role.MEMBER);
         Poll poll = poll(p.getChurchId(), null);
         when(pollRepository.findByChurchIdAndId(p.getChurchId(), poll.getId())).thenReturn(Optional.of(poll));
-        when(pollVoteRepository.countVotesByOption(p.getChurchId(), poll.getId())).thenReturn(List.of());
+        when(pollVoteRepository.findByChurchIdAndPollId(p.getChurchId(), poll.getId())).thenReturn(List.of());
 
         PollResultsResponse results = pollService.getResults(poll.getId(), p);
 

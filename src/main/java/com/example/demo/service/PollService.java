@@ -119,14 +119,16 @@ public class PollService {
         Poll poll = pollRepository.findByChurchIdAndId(principal.getChurchId(), pollId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Poll not found"));
 
-        // Aggregated in SQL — never loads individual vote rows into memory
-        Map<String, Long> voteCounts = pollVoteRepository
-                .countVotesByOption(principal.getChurchId(), pollId).stream()
-                .collect(Collectors.toMap(
-                        PollVoteRepository.OptionCount::getOption,
-                        PollVoteRepository.OptionCount::getVotes));
+        // Count in memory from a plain, church-scoped query. (An earlier SQL
+        // GROUP BY projection aliased a column AS `option` — a reserved word in
+        // PostgreSQL — which Hibernate emitted unquoted, so the results query
+        // failed at runtime on the real DB and open polls showed no counts.
+        // Poll vote volumes are church-scale, so counting here is perfectly fine.)
+        List<PollVote> votes = pollVoteRepository.findByChurchIdAndPollId(principal.getChurchId(), pollId);
+        int totalVotes = votes.size();
 
-        int totalVotes = (int) voteCounts.values().stream().mapToLong(Long::longValue).sum();
+        Map<String, Long> voteCounts = votes.stream()
+                .collect(Collectors.groupingBy(PollVote::getSelectedOption, Collectors.counting()));
 
         List<PollResultsResponse.OptionResult> results = poll.getOptions().stream()
                 .map(option -> {

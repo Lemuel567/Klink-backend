@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.request.AskAssistantRequest;
+import com.example.demo.dto.request.PolishTextRequest;
 import com.example.demo.security.MemberPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -184,5 +185,44 @@ public class AssistantService {
 
         prompt.append("\nMember's question: ").append(request.getQuestion());
         return geminiService.generateText(prompt.toString());
+    }
+
+    /**
+     * Polishes a member's rough sentences into a clearer, fuller version for
+     * whatever they're posting (event description, prayer request, group post,
+     * store item, etc). Grounded — never invents facts. Nothing is stored; the
+     * caller reviews the result in their form before saving.
+     */
+    public String polish(PolishTextRequest request, MemberPrincipal principal) {
+        String contentType = (request.getContentType() != null && !request.getContentType().isBlank())
+                ? request.getContentType().trim()
+                : "a short piece of text for the church app";
+
+        String prompt = """
+            You are helping a member of a church app improve something they are about to post. \
+            Take their rough text and rewrite it into a clearer, warmer, more polished version \
+            suitable for %s.
+
+            RULES:
+            - Stay grounded ONLY in what they wrote. Do NOT invent names, dates, times, amounts, \
+            places, scripture references, or any facts they did not mention. If a detail is not \
+            given, leave it out — never make one up.
+            - You may gently expand and add helpful phrasing so it reads fuller and more complete, \
+            but keep it honest and natural — no exaggeration, no flowery filler, no hype.
+            - Match the tone to what it is: a prayer request stays humble and personal; an \
+            announcement or event stays clear and inviting; a description stays informative.
+            - Keep it concise and appropriate in length — usually one short paragraph. Do not pad \
+            a single simple sentence into an essay.
+            - Plain text only: no markdown, no headings, no bullet points, and do NOT wrap the whole \
+            thing in quotation marks.
+            - Return ONLY the improved text, with no preamble, labels, or explanation.
+
+            What this text is for: %s
+
+            Their text:
+            %s
+            """.formatted(contentType, contentType, request.getText());
+
+        return geminiService.generateText(prompt);
     }
 }

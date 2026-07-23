@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.request.AskAssistantRequest;
+import com.example.demo.dto.request.PolishTextRequest;
 import com.example.demo.security.MemberPrincipal;
 import com.example.demo.service.AssistantService;
 import jakarta.validation.Valid;
@@ -28,5 +29,18 @@ public class AssistantController {
             Authentication authentication) {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(Map.of("answer", assistantService.ask(request, principal)));
+    }
+
+    /**
+     * Polish/expand a member's rough text for any compose field. Open to every
+     * authenticated member. The result is returned only — nothing is saved;
+     * the member reviews and edits it in their form before posting.
+     */
+    @PostMapping("/polish")
+    public ResponseEntity<Map<String, String>> polish(
+            @Valid @RequestBody PolishTextRequest request,
+            Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(Map.of("polished", assistantService.polish(request, principal)));
     }
 }
