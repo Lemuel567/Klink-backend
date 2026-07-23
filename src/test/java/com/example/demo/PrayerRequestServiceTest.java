@@ -1,4 +1,5 @@
 package com.example.demo;
+//Tests for church member prayer request submission and event publishing
 
 import com.example.demo.dto.request.CreatePrayerRequestRequest;
 import com.example.demo.dto.request.RespondPrayerRequestRequest;

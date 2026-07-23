@@ -1,4 +1,5 @@
 package com.example.demo;
+//Tests for church project management - create, update and contribution tracking
 
 import com.example.demo.dto.request.CreateProjectRequest;
 import com.example.demo.dto.request.RecordProjectContributionRequest;

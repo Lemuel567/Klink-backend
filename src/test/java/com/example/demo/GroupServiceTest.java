@@ -1,5 +1,5 @@
 package com.example.demo;
-
+//Tests for sel- contained mini church groups = roles , membership,posts, appointment and sues
 import com.example.demo.dto.request.AddGroupMemberRequest;
 import com.example.demo.dto.request.CreateGroupRequest;
 import com.example.demo.dto.request.PostGroupMessageRequest;
@@ -39,10 +39,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for the "self-contained mini-church" group model. The critical invariants:
- *  - group roles are FK-based (a regular MEMBER can be a group's admin/fin-sec), NOT the church role
- *  - membership, posts and appointments are admin-only
- *  - dues are fin-sec-only and group money is isolated behind the admin/fin-sec gate
+ * Unit tests for the self-contained mini-church group model.
+ *
+ * These tests verify the following core invariants:
+ *  - Group roles are determined by group-specific foreign keys, not church-wide roles.
+ *    A user with a regular MEMBER church role can still serve as a group's admin or finance secretary.
+ *  - Only the group admin can manage membership, posts, and appointments.
+ *  - Only the finance secretary can manage dues, and all group financial data is accessible
+ *    exclusively through the admin/finance secretary authorization boundary.
  */
 @ExtendWith(MockitoExtension.class)
 class GroupServiceTest {
