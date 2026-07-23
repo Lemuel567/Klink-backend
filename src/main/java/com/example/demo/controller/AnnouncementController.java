@@ -79,7 +79,7 @@ public class AnnouncementController {
         return ResponseEntity.ok(announcementService.getAllAnnouncements(principal, pageable));
     }
 
-    // GET /api/v1/announcements/my — announcements targeted at the calling member
+    // GET /api/v1/announcements/my — Returns announcements visible to the authenticated member based on their audience and targeting.
     @GetMapping("/my")
     public ResponseEntity<Page<AnnouncementResponse>> getMyAnnouncements(
             Authentication authentication,
