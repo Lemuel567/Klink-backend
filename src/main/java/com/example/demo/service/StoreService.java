@@ -49,6 +49,11 @@ public class StoreService {
         if (request.getPrice() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is required");
         }
+        // Price must be positive — a 0/negative price would record a 0/negative
+        // StorePayment (amount = item.getPrice()) into the ledger on purchase.
+        if (request.getPrice().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
+        }
         if (request.getQuantity() == null || request.getQuantity() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be zero or more");
         }
@@ -79,7 +84,12 @@ public class StoreService {
 
         if (request.getName() != null) item.setName(request.getName());
         if (request.getDescription() != null) item.setDescription(request.getDescription());
-        if (request.getPrice() != null) item.setPrice(request.getPrice());
+        if (request.getPrice() != null) {
+            if (request.getPrice().signum() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
+            }
+            item.setPrice(request.getPrice());
+        }
         if (request.getCategory() != null) item.setCategory(request.getCategory());
         if (request.getPhotoUrls() != null) {
             item.setPhotoUrls(request.getPhotoUrls());
@@ -103,6 +113,11 @@ public class StoreService {
         }
         if (request.getPrice() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price is required");
+        }
+        // Price must be positive — a 0/negative price would record a 0/negative
+        // StorePayment (amount = item.getPrice()) into the ledger on purchase.
+        if (request.getPrice().signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
         }
         if (request.getQuantity() == null || request.getQuantity() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be zero or more");
@@ -143,7 +158,12 @@ public class StoreService {
 
         if (request.getName() != null) item.setName(request.getName());
         if (request.getDescription() != null) item.setDescription(request.getDescription());
-        if (request.getPrice() != null) item.setPrice(request.getPrice());
+        if (request.getPrice() != null) {
+            if (request.getPrice().signum() <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Price must be greater than zero");
+            }
+            item.setPrice(request.getPrice());
+        }
         if (request.getCategory() != null) item.setCategory(request.getCategory());
 
         if (request.getQuantity() != null) {

@@ -43,6 +43,7 @@ class ChurchDeletionServiceTest {
     @Mock EventRepository eventRepository;
     @Mock SermonRepository sermonRepository;
     @Mock DevotionalRepository devotionalRepository;
+    @Mock LiveStreamRepository liveStreamRepository;
     @Mock GalleryRepository galleryRepository;
     @Mock ChurchFileRepository churchFileRepository;
     @Mock PollVoteRepository pollVoteRepository;
@@ -107,5 +108,6 @@ class ChurchDeletionServiceTest {
         verify(attendanceRepository).deleteAllByChurchId(churchId);
         verify(attendanceSessionRepository).deleteAllByChurchId(churchId);
         verify(givingScheduleRepository).deleteAllByChurchId(churchId);
+        verify(liveStreamRepository).deleteAllByChurchId(churchId);
     }
 }

@@ -53,6 +53,14 @@ public interface ProjectContributionRepository extends JpaRepository<ProjectCont
     @Query("SELECT DISTINCT c.member.id FROM ProjectContribution c WHERE c.project.id = :projectId")
     List<UUID> findDistinctMemberIdsByProjectId(@Param("projectId") UUID projectId);
 
+    // Personal journey: how many distinct projects this member has supported, and
+    // the total they've given to projects. Always scoped to their own id.
+    @Query("SELECT COUNT(DISTINCT c.project.id) FROM ProjectContribution c WHERE c.church.id = :churchId AND c.member.id = :memberId")
+    long countDistinctProjectsByMember(@Param("churchId") UUID churchId, @Param("memberId") UUID memberId);
+
+    @Query("SELECT COALESCE(SUM(c.amount), 0) FROM ProjectContribution c WHERE c.church.id = :churchId AND c.member.id = :memberId")
+    BigDecimal sumMemberContributions(@Param("churchId") UUID churchId, @Param("memberId") UUID memberId);
+
     @Modifying
     @Query("DELETE FROM ProjectContribution pc WHERE pc.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);

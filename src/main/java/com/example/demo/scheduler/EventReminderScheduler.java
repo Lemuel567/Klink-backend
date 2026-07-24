@@ -32,6 +32,11 @@ public class EventReminderScheduler {
                 .findByReminderSentFalseAndEventDateBetween(now, in48Hours);
 
         for (Event event : upcomingEvents) {
+            // Skip churches inside their 30-day deletion grace window — their
+            // members are already 403-blocked (JwtFilter), so don't keep pinging
+            // them. Mirrors WelfareReminderScheduler and the other schedulers.
+            if (event.getChurch().getDeletedAt() != null) continue;
+
             String dateStr = event.getEventDate().format(DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a"));
             String title = "Upcoming Event: " + event.getTitle();
             String body = event.getDescription() != null

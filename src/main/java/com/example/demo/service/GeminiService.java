@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
@@ -56,22 +57,51 @@ public class GeminiService {
                     .body(body)
                     .retrieve()
                     .body(JsonNode.class);
+        } catch (HttpStatusCodeException e) {
+            // 429 = free-tier quota / rate limit. Surface it as its own status
+            // with a clear message rather than a generic "unavailable".
+            if (e.getStatusCode().value() == 429) {
+                log.warn("Gemini rate limit / quota exhausted (429): {}", e.getResponseBodyAsString());
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "The AI has reached today's free usage limit. Please try again later.");
+            }
+            log.error("Gemini generateContent HTTP {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "The AI service is unavailable right now. Please try again.");
         } catch (RestClientException e) {
             log.error("Gemini generateContent failed: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "The AI service is unavailable right now. Please try again.");
         }
 
-        String text = response == null ? null : response
-                .path("candidates").path(0)
-                .path("content").path("parts").path(0)
-                .path("text").asText(null);
-
+        String text = extractText(response);
         if (text == null || text.isBlank()) {
             log.error("Gemini returned no text. Raw response: {}", response);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "The AI service did not return a result. Please try again.");
         }
         return text.trim();
+    }
+
+    /**
+     * Pulls the answer out of the first candidate. Thinking-capable models
+     * (Gemini 3.x) can split the reply across several parts and prefix a
+     * "thought" part, so we concatenate every non-thought text part instead of
+     * blindly reading parts[0].
+     */
+    private String extractText(JsonNode response) {
+        if (response == null) return null;
+        JsonNode parts = response.path("candidates").path(0).path("content").path("parts");
+        if (!parts.isArray()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (JsonNode part : parts) {
+            if (part.path("thought").asBoolean(false)) continue; // skip reasoning
+            String t = part.path("text").asText(null);
+            if (t != null && !t.isBlank()) {
+                if (sb.length() > 0) sb.append('\n');
+                sb.append(t);
+            }
+        }
+        return sb.length() == 0 ? null : sb.toString();
     }
 }

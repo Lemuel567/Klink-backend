@@ -5,6 +5,7 @@ import com.example.demo.dto.response.ChurchResponse;
 import com.example.demo.dto.response.MessageResponse;
 import com.example.demo.security.MemberPrincipal;
 import com.example.demo.service.ChurchService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,7 +27,7 @@ public class ChurchController {
 
     @PutMapping("/settings")
     public ResponseEntity<ChurchResponse> updateChurchSettings(
-            @RequestBody UpdateChurchSettingsRequest request,
+            @Valid @RequestBody UpdateChurchSettingsRequest request,
             Authentication authentication) {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(churchService.updateChurchSettings(request, principal));

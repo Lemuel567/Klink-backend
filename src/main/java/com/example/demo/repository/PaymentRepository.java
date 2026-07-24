@@ -89,6 +89,37 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     boolean existsByChurchIdAndPaymentTypeAndPaymentDate(UUID churchId, PaymentType paymentType, java.time.LocalDate paymentDate);
 
+    // A member's own confirmed CHURCH giving (offering/tithe/welfare/special;
+    // group dues excluded via group IS NULL). Used by the personal journey
+    // summary — always scoped to the member's own id from their token.
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
+        WHERE p.church.id = :churchId AND p.member.id = :memberId
+          AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+          AND p.group IS NULL
+        """)
+    java.math.BigDecimal sumMemberGiving(@Param("churchId") UUID churchId, @Param("memberId") UUID memberId);
+
+    @Query("""
+        SELECT COALESCE(SUM(p.amount), 0) FROM Payment p
+        WHERE p.church.id = :churchId AND p.member.id = :memberId
+          AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+          AND p.group IS NULL
+          AND p.paymentDate >= :since
+        """)
+    java.math.BigDecimal sumMemberGivingSince(@Param("churchId") UUID churchId, @Param("memberId") UUID memberId,
+                                              @Param("since") LocalDate since);
+
+    // Dates the member gave church money — used to compute the monthly giving
+    // streak in Java (DB-agnostic; a member's own rows are a small set).
+    @Query("""
+        SELECT p.paymentDate FROM Payment p
+        WHERE p.church.id = :churchId AND p.member.id = :memberId
+          AND p.status = com.example.demo.model.PaymentStatus.CONFIRMED
+          AND p.group IS NULL AND p.paymentDate IS NOT NULL
+        """)
+    List<LocalDate> findMemberGivingDates(@Param("churchId") UUID churchId, @Param("memberId") UUID memberId);
+
     @Query("SELECT p FROM Payment p WHERE p.group.id = :groupId AND p.member.id = :memberId AND p.paymentMonth = :paymentMonth")
     List<Payment> findByGroupIdAndMemberIdAndPaymentMonth(
             @Param("groupId") UUID groupId,

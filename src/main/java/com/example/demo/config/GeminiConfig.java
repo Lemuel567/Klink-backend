@@ -20,10 +20,14 @@ public class GeminiConfig {
 
     // Model name is configurable — Google periodically renames/retires free-tier
     // models, so a rename never needs a code change, just this one property.
-    // "gemini-flash-latest" verified working (2026-07-23) against the free tier
-    // for this project; "gemini-2.0-flash" returned a 0-quota rejection and
-    // "gemini-1.5-flash"/"gemini-2.5-flash" 404'd as retired/unavailable.
-    @Value("${gemini.model:gemini-flash-latest}")
+    // AVOID the "-latest" full-flash alias: on 2026-07-23 "gemini-flash-latest"
+    // drifted onto gemini-3.6-flash, a preview model whose free tier is only
+    // 20 requests/DAY — it 429s almost immediately. "gemini-flash-lite-latest"
+    // (currently gemini-3.5-flash-lite) is a stable lite model with a much
+    // larger free-tier daily allowance and returns clean text for our prompts.
+    // "gemini-2.0-flash"/"gemini-2.0-flash-lite" 429'd (exhausted/0-quota) and
+    // "gemini-2.5-flash"/"gemini-2.5-flash-lite" 404'd as retired for this key.
+    @Value("${gemini.model:gemini-flash-lite-latest}")
     private String model;
 
     public boolean isConfigured() {

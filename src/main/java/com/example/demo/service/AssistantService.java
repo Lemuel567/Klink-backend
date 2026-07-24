@@ -1,7 +1,11 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.request.AskAssistantRequest;
+import com.example.demo.dto.request.BibleChatRequest;
+import com.example.demo.dto.request.BibleReflectionRequest;
+import com.example.demo.dto.request.DiscussionGuideRequest;
 import com.example.demo.dto.request.PolishTextRequest;
+import com.example.demo.dto.request.TranslateRequest;
 import com.example.demo.security.MemberPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +31,15 @@ public class AssistantService {
     // extra allowed request).
     private final ConcurrentHashMap<UUID, Long> lastAskAt = new ConcurrentHashMap<>();
     private static final long COOLDOWN_MS = 3000;
+
+    // The daily verse (and therefore its reflection) is IDENTICAL for every
+    // member of every church — the frontend picks it deterministically by
+    // day-of-year from a shared list. So we generate each verse's reflection
+    // ONCE and serve the cached text to everyone, instead of spending a scarce
+    // free-tier Gemini request per device. Keyed by verse reference; ~36 daily
+    // verses means the map stays tiny (bounded defensively below).
+    private final ConcurrentHashMap<String, String> reflectionCache = new ConcurrentHashMap<>();
+    private static final int REFLECTION_CACHE_MAX = 200;
 
     /**
      * Everything the model is allowed to know about Klink. Keep this the single
@@ -224,5 +237,119 @@ public class AssistantService {
             """.formatted(contentType, contentType, request.getText());
 
         return geminiService.generateText(prompt);
+    }
+
+    /**
+     * Translates church content (a sermon, a devotional) into a local language
+     * so members can read the Word in their heart language. Content is public
+     * church material — no private data involved.
+     */
+    public String translate(TranslateRequest request, MemberPrincipal principal) {
+        String prompt = """
+            Translate the following church text into %s. Keep the meaning faithful and the tone \
+            warm and reverent — this is spiritual content for a congregation. Preserve scripture \
+            references and names. Return ONLY the translation as plain text (paragraphs), with no \
+            preamble, no explanation, and no note about the translation.
+
+            Text to translate:
+            %s
+            """.formatted(request.getTargetLanguage().trim(), request.getText());
+        return geminiService.generateText(prompt);
+    }
+
+    /**
+     * Builds a short small-group discussion/reflection guide from a sermon's
+     * notes, for members to use during the week.
+     */
+    public String discussionGuide(DiscussionGuideRequest request, MemberPrincipal principal) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are preparing a short small-group discussion guide from a church sermon, ")
+              .append("for members to reflect on during the week. Based ONLY on the sermon information ")
+              .append("below, write:\n")
+              .append("- one short opening sentence summarising the sermon's main point,\n")
+              .append("- then 4 to 5 numbered reflection/discussion questions that help a small group ")
+              .append("apply the message to their lives,\n")
+              .append("- then one short closing prayer point.\n")
+              .append("Stay grounded in the sermon — do not invent scripture or claims not implied by it. ")
+              .append("Plain text only, warm and encouraging tone.\n\n");
+        prompt.append("Sermon title: ").append(request.getTitle()).append("\n");
+        if (request.getScripture() != null && !request.getScripture().isBlank()) {
+            prompt.append("Scripture: ").append(request.getScripture()).append("\n");
+        }
+        if (request.getMemoryVerse() != null && !request.getMemoryVerse().isBlank()) {
+            prompt.append("Memory verse: ").append(request.getMemoryVerse()).append("\n");
+        }
+        prompt.append("Sermon notes:\n").append(request.getNotes());
+        return geminiService.generateText(prompt.toString());
+    }
+
+    /**
+     * A thorough, warm explanation of the day's Bible verse for a member —
+     * meaning, a little context, and how to live it out.
+     */
+    public String bibleReflection(BibleReflectionRequest request, MemberPrincipal principal) {
+        String key = request.getReference() == null ? "" : request.getReference().trim().toLowerCase();
+        String cached = reflectionCache.get(key);
+        if (cached != null) {
+            return cached; // shared daily content — no Gemini call, no quota spent
+        }
+
+        String prompt = """
+            You are a warm, encouraging Bible teacher helping a church member understand today's \
+            verse. Give a thorough but accessible explanation for an everyday reader: what the verse \
+            means, a little of its context, and how to apply it to daily life. Write 2 to 4 short \
+            paragraphs in plain text — no markdown, no headings. Warm, hopeful, faithful to Scripture; \
+            do not invent quotations. End with one short encouraging sentence.
+
+            Today's verse: %s — "%s"
+            """.formatted(request.getReference(), request.getVerse());
+
+        String reflection = geminiService.generateText(prompt);
+        // Defensive bound: legitimately only ~36 daily verses exist, but the
+        // endpoint accepts arbitrary references, so cap the map.
+        if (reflectionCache.size() >= REFLECTION_CACHE_MAX) {
+            reflectionCache.clear();
+        }
+        reflectionCache.put(key, reflection);
+        return reflection;
+    }
+
+    /**
+     * Discuss the day's verse with the member — a warm Bible-study companion.
+     * Stays grounded in Scripture; points deep pastoral matters to their leaders.
+     */
+    public String bibleChat(BibleChatRequest request, MemberPrincipal principal) {
+        // Same per-member cooldown as Ask Klink — protects the free-tier quota
+        // from rapid-fire chat sends (the UI already blocks while one is pending).
+        long now = System.currentTimeMillis();
+        Long last = lastAskAt.put(principal.getMemberId(), now);
+        if (last != null && now - last < COOLDOWN_MS) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "One message at a time — give me a moment to answer.");
+        }
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("You are a warm, encouraging Bible-study companion in a church app, discussing ")
+              .append("today's verse with a member.\n\n")
+              .append("RULES:\n")
+              .append("- Stay grounded in Scripture and in the verse below. Be faithful; never invent ")
+              .append("quotations or make up chapter-and-verse you're unsure of.\n")
+              .append("- Keep answers SHORT (2-5 sentences), plain text, warm and encouraging.\n")
+              .append("- Welcome honest questions and doubts kindly. For deep doctrinal disputes or ")
+              .append("serious personal crises, gently encourage them to speak with their pastor or an elder.\n")
+              .append("- Stay on Scripture and faith; if asked something unrelated, gently steer back.\n\n")
+              .append("Today's verse: ").append(request.getReference())
+              .append(" — \"").append(request.getVerse()).append("\"\n");
+
+        if (request.getHistory() != null && !request.getHistory().isEmpty()) {
+            prompt.append("\nDiscussion so far (oldest first):\n");
+            for (AskAssistantRequest.Turn turn : request.getHistory()) {
+                prompt.append("user".equals(turn.getRole()) ? "Member: " : "Companion: ")
+                      .append(turn.getText()).append("\n");
+            }
+        }
+
+        prompt.append("\nMember's question: ").append(request.getQuestion());
+        return geminiService.generateText(prompt.toString());
     }
 }

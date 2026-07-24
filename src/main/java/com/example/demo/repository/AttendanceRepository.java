@@ -31,6 +31,10 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
             UUID churchId, com.example.demo.model.AttendanceStatus status,
             LocalDate from, LocalDate to);
 
+    // Personal journey: how many services this member has attended (PRESENT).
+    long countByChurchIdAndMemberIdAndStatus(
+            UUID churchId, UUID memberId, com.example.demo.model.AttendanceStatus status);
+
     @Modifying
     @Query("DELETE FROM Attendance a WHERE a.church.id = :churchId")
     void deleteAllByChurchId(@Param("churchId") UUID churchId);

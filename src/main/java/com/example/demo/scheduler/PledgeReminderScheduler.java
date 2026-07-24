@@ -37,6 +37,10 @@ public class PledgeReminderScheduler {
         do {
             chunk = pledgeRepository.findByStatusInPaged(unpaidStatuses, PageRequest.of(page++, PAGE_SIZE, Sort.by("id")));
             for (Pledge pledge : chunk.getContent()) {
+                // Skip churches inside their 30-day deletion grace window — their
+                // members are already 403-blocked, so don't keep pinging them.
+                if (pledge.getMember().getChurch().getDeletedAt() != null) continue;
+
                 String label = pledge.getDescription() != null ? pledge.getDescription() : "General Pledge";
                 BigDecimal paid = pledge.getAmountPaid() != null ? pledge.getAmountPaid() : BigDecimal.ZERO;
                 String body = String.format(

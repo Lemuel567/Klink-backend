@@ -33,6 +33,7 @@ public class ChurchDeletionService {
     private final EventRepository eventRepository;
     private final SermonRepository sermonRepository;
     private final DevotionalRepository devotionalRepository;
+    private final LiveStreamRepository liveStreamRepository;
     private final GalleryRepository galleryRepository;
     private final ChurchFileRepository churchFileRepository;
     private final PollVoteRepository pollVoteRepository;
@@ -91,6 +92,7 @@ public class ChurchDeletionService {
         hallOfFameRepository.deleteAllByChurchId(churchId);
         galleryRepository.deleteAllByChurchId(churchId);
         churchFileRepository.deleteAllByChurchId(churchId);
+        liveStreamRepository.deleteAllByChurchId(churchId);
         devotionalRepository.deleteAllByChurchId(churchId);
         sermonRepository.deleteAllByChurchId(churchId);
         eventRepository.deleteAllByChurchId(churchId);

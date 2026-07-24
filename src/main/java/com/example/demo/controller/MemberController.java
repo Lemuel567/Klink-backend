@@ -6,8 +6,10 @@ import com.example.demo.dto.request.RegisterNonSmartphoneMemberRequest;
 import com.example.demo.dto.request.UpdateMemberRequest;
 import com.example.demo.dto.request.UpdatePhoneRequest;
 import com.example.demo.dto.response.MessageResponse;
+import com.example.demo.dto.response.MemberJourneyResponse;
 import com.example.demo.dto.response.MemberResponse;
 import com.example.demo.security.MemberPrincipal;
+import com.example.demo.service.MemberJourneyService;
 import com.example.demo.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,14 @@ import java.util.UUID;
 public class MemberController {
 
     private final MemberService memberService;
+    private final MemberJourneyService memberJourneyService;
+
+    /** "Your Journey" — the caller's OWN personal summary (own token only). */
+    @GetMapping("/me/journey")
+    public ResponseEntity<MemberJourneyResponse> getMyJourney(Authentication authentication) {
+        MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(memberJourneyService.getMyJourney(principal));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<MemberResponse> registerNonSmartphoneMember(

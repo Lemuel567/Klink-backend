@@ -19,7 +19,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -36,7 +35,7 @@ public class StoreController {
     // their URLs sent in photoUrls — supports multiple pictures per item.
     @PostMapping(value = "/items", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<StoreItemResponse> addItemJson(
-            @org.springframework.web.bind.annotation.RequestBody AddStoreItemRequest request,
+            @Valid @org.springframework.web.bind.annotation.RequestBody AddStoreItemRequest request,
             Authentication authentication) {
         MemberPrincipal principal = (MemberPrincipal) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)

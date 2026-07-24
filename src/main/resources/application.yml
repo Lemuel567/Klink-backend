@@ -154,7 +154,12 @@ paystack:
 # GEMINI_API_KEY in .env; the feature 503s with a clear message until then.
 gemini:
   api-key: ${GEMINI_API_KEY:}
-  model: ${GEMINI_MODEL:gemini-flash-latest}
+  # "gemini-flash-latest" is a MOVING alias that drifted onto gemini-3.6-flash,
+  # a preview model with a 20-requests/DAY free-tier cap — it exhausts almost
+  # instantly and every call after returns 429. "gemini-flash-lite-latest"
+  # (currently gemini-3.5-flash-lite) is a stable lite model with a far larger
+  # free-tier daily allowance. Override with GEMINI_MODEL if you upgrade to paid.
+  model: ${GEMINI_MODEL:gemini-flash-lite-latest}
 
 supabase:
   url: ${SUPABASE_URL}
